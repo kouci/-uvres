@@ -3,8 +3,50 @@
 (function () {
 	'use strict';
 
+	function _mergeNamespaces(n, m) {
+		m.forEach(function (e) {
+			e && typeof e !== 'string' && !Array.isArray(e) && Object.keys(e).forEach(function (k) {
+				if (k !== 'default' && !(k in n)) {
+					var d = Object.getOwnPropertyDescriptor(e, k);
+					Object.defineProperty(n, k, d.get ? d : {
+						enumerable: true,
+						get: function () { return e[k]; }
+					});
+				}
+			});
+		});
+		return Object.freeze(n);
+	}
+
+	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
 	function getDefaultExportFromCjs (x) {
 		return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+	}
+
+	function getAugmentedNamespace(n) {
+	  if (n.__esModule) return n;
+	  var f = n.default;
+		if (typeof f == "function") {
+			var a = function a () {
+				if (this instanceof a) {
+	        return Reflect.construct(f, arguments, this.constructor);
+				}
+				return f.apply(this, arguments);
+			};
+			a.prototype = f.prototype;
+	  } else a = {};
+	  Object.defineProperty(a, '__esModule', {value: true});
+		Object.keys(n).forEach(function (k) {
+			var d = Object.getOwnPropertyDescriptor(n, k);
+			Object.defineProperty(a, k, d.get ? d : {
+				enumerable: true,
+				get: function () {
+					return n[k];
+				}
+			});
+		});
+		return a;
 	}
 
 	var react = {exports: {}};
@@ -2422,6 +2464,11 @@
 
 	var reactExports = react.exports;
 	var React = /*@__PURE__*/getDefaultExportFromCjs(reactExports);
+
+	var React$1 = /*#__PURE__*/_mergeNamespaces({
+		__proto__: null,
+		'default': React
+	}, [reactExports]);
 
 	var reactDom = {exports: {}};
 
@@ -7908,15 +7955,11323 @@
 	var reactDomExports = reactDom.exports;
 	var ReactDOM = /*@__PURE__*/getDefaultExportFromCjs(reactDomExports);
 
+	var ReactDOM$1 = /*#__PURE__*/_mergeNamespaces({
+		__proto__: null,
+		'default': ReactDOM
+	}, [reactDomExports]);
+
+	/**
+	 * @remix-run/router v1.14.0
+	 *
+	 * Copyright (c) Remix Software Inc.
+	 *
+	 * This source code is licensed under the MIT license found in the
+	 * LICENSE.md file in the root directory of this source tree.
+	 *
+	 * @license MIT
+	 */
+	function _extends$6() {
+	  _extends$6 = Object.assign ? Object.assign.bind() : function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$6.apply(this, arguments);
+	}
+
+	////////////////////////////////////////////////////////////////////////////////
+	//#region Types and Constants
+	////////////////////////////////////////////////////////////////////////////////
+	/**
+	 * Actions represent the type of change to a location value.
+	 */
+	var Action;
+	(function (Action) {
+	  /**
+	   * A POP indicates a change to an arbitrary index in the history stack, such
+	   * as a back or forward navigation. It does not describe the direction of the
+	   * navigation, only that the current index changed.
+	   *
+	   * Note: This is the default action for newly created history objects.
+	   */
+	  Action["Pop"] = "POP";
+	  /**
+	   * A PUSH indicates a new entry being added to the history stack, such as when
+	   * a link is clicked and a new page loads. When this happens, all subsequent
+	   * entries in the stack are lost.
+	   */
+	  Action["Push"] = "PUSH";
+	  /**
+	   * A REPLACE indicates the entry at the current index in the history stack
+	   * being replaced by a new one.
+	   */
+	  Action["Replace"] = "REPLACE";
+	})(Action || (Action = {}));
+	const PopStateEventType = "popstate";
+	/**
+	 * Browser history stores the location in regular URLs. This is the standard for
+	 * most web apps, but it requires some configuration on the server to ensure you
+	 * serve the same app at multiple URLs.
+	 *
+	 * @see https://github.com/remix-run/history/tree/main/docs/api-reference.md#createbrowserhistory
+	 */
+	function createBrowserHistory(options) {
+	  if (options === void 0) {
+	    options = {};
+	  }
+	  function createBrowserLocation(window, globalHistory) {
+	    let {
+	      pathname,
+	      search,
+	      hash
+	    } = window.location;
+	    return createLocation("", {
+	      pathname,
+	      search,
+	      hash
+	    },
+	    // state defaults to `null` because `window.history.state` does
+	    globalHistory.state && globalHistory.state.usr || null, globalHistory.state && globalHistory.state.key || "default");
+	  }
+	  function createBrowserHref(window, to) {
+	    return typeof to === "string" ? to : createPath(to);
+	  }
+	  return getUrlBasedHistory(createBrowserLocation, createBrowserHref, null, options);
+	}
+	function invariant(value, message) {
+	  if (value === false || value === null || typeof value === "undefined") {
+	    throw new Error(message);
+	  }
+	}
+	function warning(cond, message) {
+	  if (!cond) {
+	    // eslint-disable-next-line no-console
+	    if (typeof console !== "undefined") console.warn(message);
+	    try {
+	      // Welcome to debugging history!
+	      //
+	      // This error is thrown as a convenience, so you can more easily
+	      // find the source for a warning that appears in the console by
+	      // enabling "pause on exceptions" in your JavaScript debugger.
+	      throw new Error(message);
+	      // eslint-disable-next-line no-empty
+	    } catch (e) {}
+	  }
+	}
+	function createKey() {
+	  return Math.random().toString(36).substr(2, 8);
+	}
+	/**
+	 * For browser-based histories, we combine the state and key into an object
+	 */
+	function getHistoryState(location, index) {
+	  return {
+	    usr: location.state,
+	    key: location.key,
+	    idx: index
+	  };
+	}
+	/**
+	 * Creates a Location object with a unique key from the given Path
+	 */
+	function createLocation(current, to, state, key) {
+	  if (state === void 0) {
+	    state = null;
+	  }
+	  let location = _extends$6({
+	    pathname: typeof current === "string" ? current : current.pathname,
+	    search: "",
+	    hash: ""
+	  }, typeof to === "string" ? parsePath(to) : to, {
+	    state,
+	    // TODO: This could be cleaned up.  push/replace should probably just take
+	    // full Locations now and avoid the need to run through this flow at all
+	    // But that's a pretty big refactor to the current test suite so going to
+	    // keep as is for the time being and just let any incoming keys take precedence
+	    key: to && to.key || key || createKey()
+	  });
+	  return location;
+	}
+	/**
+	 * Creates a string URL path from the given pathname, search, and hash components.
+	 */
+	function createPath(_ref) {
+	  let {
+	    pathname = "/",
+	    search = "",
+	    hash = ""
+	  } = _ref;
+	  if (search && search !== "?") pathname += search.charAt(0) === "?" ? search : "?" + search;
+	  if (hash && hash !== "#") pathname += hash.charAt(0) === "#" ? hash : "#" + hash;
+	  return pathname;
+	}
+	/**
+	 * Parses a string URL path into its separate pathname, search, and hash components.
+	 */
+	function parsePath(path) {
+	  let parsedPath = {};
+	  if (path) {
+	    let hashIndex = path.indexOf("#");
+	    if (hashIndex >= 0) {
+	      parsedPath.hash = path.substr(hashIndex);
+	      path = path.substr(0, hashIndex);
+	    }
+	    let searchIndex = path.indexOf("?");
+	    if (searchIndex >= 0) {
+	      parsedPath.search = path.substr(searchIndex);
+	      path = path.substr(0, searchIndex);
+	    }
+	    if (path) {
+	      parsedPath.pathname = path;
+	    }
+	  }
+	  return parsedPath;
+	}
+	function getUrlBasedHistory(getLocation, createHref, validateLocation, options) {
+	  if (options === void 0) {
+	    options = {};
+	  }
+	  let {
+	    window = document.defaultView,
+	    v5Compat = false
+	  } = options;
+	  let globalHistory = window.history;
+	  let action = Action.Pop;
+	  let listener = null;
+	  let index = getIndex();
+	  // Index should only be null when we initialize. If not, it's because the
+	  // user called history.pushState or history.replaceState directly, in which
+	  // case we should log a warning as it will result in bugs.
+	  if (index == null) {
+	    index = 0;
+	    globalHistory.replaceState(_extends$6({}, globalHistory.state, {
+	      idx: index
+	    }), "");
+	  }
+	  function getIndex() {
+	    let state = globalHistory.state || {
+	      idx: null
+	    };
+	    return state.idx;
+	  }
+	  function handlePop() {
+	    action = Action.Pop;
+	    let nextIndex = getIndex();
+	    let delta = nextIndex == null ? null : nextIndex - index;
+	    index = nextIndex;
+	    if (listener) {
+	      listener({
+	        action,
+	        location: history.location,
+	        delta
+	      });
+	    }
+	  }
+	  function push(to, state) {
+	    action = Action.Push;
+	    let location = createLocation(history.location, to, state);
+	    if (validateLocation) validateLocation(location, to);
+	    index = getIndex() + 1;
+	    let historyState = getHistoryState(location, index);
+	    let url = history.createHref(location);
+	    // try...catch because iOS limits us to 100 pushState calls :/
+	    try {
+	      globalHistory.pushState(historyState, "", url);
+	    } catch (error) {
+	      // If the exception is because `state` can't be serialized, let that throw
+	      // outwards just like a replace call would so the dev knows the cause
+	      // https://html.spec.whatwg.org/multipage/nav-history-apis.html#shared-history-push/replace-state-steps
+	      // https://html.spec.whatwg.org/multipage/structured-data.html#structuredserializeinternal
+	      if (error instanceof DOMException && error.name === "DataCloneError") {
+	        throw error;
+	      }
+	      // They are going to lose state here, but there is no real
+	      // way to warn them about it since the page will refresh...
+	      window.location.assign(url);
+	    }
+	    if (v5Compat && listener) {
+	      listener({
+	        action,
+	        location: history.location,
+	        delta: 1
+	      });
+	    }
+	  }
+	  function replace(to, state) {
+	    action = Action.Replace;
+	    let location = createLocation(history.location, to, state);
+	    if (validateLocation) validateLocation(location, to);
+	    index = getIndex();
+	    let historyState = getHistoryState(location, index);
+	    let url = history.createHref(location);
+	    globalHistory.replaceState(historyState, "", url);
+	    if (v5Compat && listener) {
+	      listener({
+	        action,
+	        location: history.location,
+	        delta: 0
+	      });
+	    }
+	  }
+	  function createURL(to) {
+	    // window.location.origin is "null" (the literal string value) in Firefox
+	    // under certain conditions, notably when serving from a local HTML file
+	    // See https://bugzilla.mozilla.org/show_bug.cgi?id=878297
+	    let base = window.location.origin !== "null" ? window.location.origin : window.location.href;
+	    let href = typeof to === "string" ? to : createPath(to);
+	    invariant(base, "No window.location.(origin|href) available to create URL for href: " + href);
+	    return new URL(href, base);
+	  }
+	  let history = {
+	    get action() {
+	      return action;
+	    },
+	    get location() {
+	      return getLocation(window, globalHistory);
+	    },
+	    listen(fn) {
+	      if (listener) {
+	        throw new Error("A history only accepts one active listener");
+	      }
+	      window.addEventListener(PopStateEventType, handlePop);
+	      listener = fn;
+	      return () => {
+	        window.removeEventListener(PopStateEventType, handlePop);
+	        listener = null;
+	      };
+	    },
+	    createHref(to) {
+	      return createHref(window, to);
+	    },
+	    createURL,
+	    encodeLocation(to) {
+	      // Encode a Location the same way window.location would
+	      let url = createURL(to);
+	      return {
+	        pathname: url.pathname,
+	        search: url.search,
+	        hash: url.hash
+	      };
+	    },
+	    push,
+	    replace,
+	    go(n) {
+	      return globalHistory.go(n);
+	    }
+	  };
+	  return history;
+	}
+	//#endregion
+
+	var ResultType;
+	(function (ResultType) {
+	  ResultType["data"] = "data";
+	  ResultType["deferred"] = "deferred";
+	  ResultType["redirect"] = "redirect";
+	  ResultType["error"] = "error";
+	})(ResultType || (ResultType = {}));
+	/**
+	 * Matches the given routes to a location and returns the match data.
+	 *
+	 * @see https://reactrouter.com/utils/match-routes
+	 */
+	function matchRoutes(routes, locationArg, basename) {
+	  if (basename === void 0) {
+	    basename = "/";
+	  }
+	  let location = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
+	  let pathname = stripBasename(location.pathname || "/", basename);
+	  if (pathname == null) {
+	    return null;
+	  }
+	  let branches = flattenRoutes(routes);
+	  rankRouteBranches(branches);
+	  let matches = null;
+	  for (let i = 0; matches == null && i < branches.length; ++i) {
+	    matches = matchRouteBranch(branches[i],
+	    // Incoming pathnames are generally encoded from either window.location
+	    // or from router.navigate, but we want to match against the unencoded
+	    // paths in the route definitions.  Memory router locations won't be
+	    // encoded here but there also shouldn't be anything to decode so this
+	    // should be a safe operation.  This avoids needing matchRoutes to be
+	    // history-aware.
+	    safelyDecodeURI(pathname));
+	  }
+	  return matches;
+	}
+	function flattenRoutes(routes, branches, parentsMeta, parentPath) {
+	  if (branches === void 0) {
+	    branches = [];
+	  }
+	  if (parentsMeta === void 0) {
+	    parentsMeta = [];
+	  }
+	  if (parentPath === void 0) {
+	    parentPath = "";
+	  }
+	  let flattenRoute = (route, index, relativePath) => {
+	    let meta = {
+	      relativePath: relativePath === undefined ? route.path || "" : relativePath,
+	      caseSensitive: route.caseSensitive === true,
+	      childrenIndex: index,
+	      route
+	    };
+	    if (meta.relativePath.startsWith("/")) {
+	      invariant(meta.relativePath.startsWith(parentPath), "Absolute route path \"" + meta.relativePath + "\" nested under path " + ("\"" + parentPath + "\" is not valid. An absolute child route path ") + "must start with the combined path of all its parent routes.");
+	      meta.relativePath = meta.relativePath.slice(parentPath.length);
+	    }
+	    let path = joinPaths([parentPath, meta.relativePath]);
+	    let routesMeta = parentsMeta.concat(meta);
+	    // Add the children before adding this route to the array, so we traverse the
+	    // route tree depth-first and child routes appear before their parents in
+	    // the "flattened" version.
+	    if (route.children && route.children.length > 0) {
+	      invariant(
+	      // Our types know better, but runtime JS may not!
+	      // @ts-expect-error
+	      route.index !== true, "Index routes must not have child routes. Please remove " + ("all child routes from route path \"" + path + "\"."));
+	      flattenRoutes(route.children, branches, routesMeta, path);
+	    }
+	    // Routes without a path shouldn't ever match by themselves unless they are
+	    // index routes, so don't add them to the list of possible branches.
+	    if (route.path == null && !route.index) {
+	      return;
+	    }
+	    branches.push({
+	      path,
+	      score: computeScore(path, route.index),
+	      routesMeta
+	    });
+	  };
+	  routes.forEach((route, index) => {
+	    var _route$path;
+	    // coarse-grain check for optional params
+	    if (route.path === "" || !((_route$path = route.path) != null && _route$path.includes("?"))) {
+	      flattenRoute(route, index);
+	    } else {
+	      for (let exploded of explodeOptionalSegments(route.path)) {
+	        flattenRoute(route, index, exploded);
+	      }
+	    }
+	  });
+	  return branches;
+	}
+	/**
+	 * Computes all combinations of optional path segments for a given path,
+	 * excluding combinations that are ambiguous and of lower priority.
+	 *
+	 * For example, `/one/:two?/three/:four?/:five?` explodes to:
+	 * - `/one/three`
+	 * - `/one/:two/three`
+	 * - `/one/three/:four`
+	 * - `/one/three/:five`
+	 * - `/one/:two/three/:four`
+	 * - `/one/:two/three/:five`
+	 * - `/one/three/:four/:five`
+	 * - `/one/:two/three/:four/:five`
+	 */
+	function explodeOptionalSegments(path) {
+	  let segments = path.split("/");
+	  if (segments.length === 0) return [];
+	  let [first, ...rest] = segments;
+	  // Optional path segments are denoted by a trailing `?`
+	  let isOptional = first.endsWith("?");
+	  // Compute the corresponding required segment: `foo?` -> `foo`
+	  let required = first.replace(/\?$/, "");
+	  if (rest.length === 0) {
+	    // Intepret empty string as omitting an optional segment
+	    // `["one", "", "three"]` corresponds to omitting `:two` from `/one/:two?/three` -> `/one/three`
+	    return isOptional ? [required, ""] : [required];
+	  }
+	  let restExploded = explodeOptionalSegments(rest.join("/"));
+	  let result = [];
+	  // All child paths with the prefix.  Do this for all children before the
+	  // optional version for all children, so we get consistent ordering where the
+	  // parent optional aspect is preferred as required.  Otherwise, we can get
+	  // child sections interspersed where deeper optional segments are higher than
+	  // parent optional segments, where for example, /:two would explode _earlier_
+	  // then /:one.  By always including the parent as required _for all children_
+	  // first, we avoid this issue
+	  result.push(...restExploded.map(subpath => subpath === "" ? required : [required, subpath].join("/")));
+	  // Then, if this is an optional value, add all child versions without
+	  if (isOptional) {
+	    result.push(...restExploded);
+	  }
+	  // for absolute paths, ensure `/` instead of empty segment
+	  return result.map(exploded => path.startsWith("/") && exploded === "" ? "/" : exploded);
+	}
+	function rankRouteBranches(branches) {
+	  branches.sort((a, b) => a.score !== b.score ? b.score - a.score // Higher score first
+	  : compareIndexes(a.routesMeta.map(meta => meta.childrenIndex), b.routesMeta.map(meta => meta.childrenIndex)));
+	}
+	const paramRe = /^:\w+$/;
+	const dynamicSegmentValue = 3;
+	const indexRouteValue = 2;
+	const emptySegmentValue = 1;
+	const staticSegmentValue = 10;
+	const splatPenalty = -2;
+	const isSplat = s => s === "*";
+	function computeScore(path, index) {
+	  let segments = path.split("/");
+	  let initialScore = segments.length;
+	  if (segments.some(isSplat)) {
+	    initialScore += splatPenalty;
+	  }
+	  if (index) {
+	    initialScore += indexRouteValue;
+	  }
+	  return segments.filter(s => !isSplat(s)).reduce((score, segment) => score + (paramRe.test(segment) ? dynamicSegmentValue : segment === "" ? emptySegmentValue : staticSegmentValue), initialScore);
+	}
+	function compareIndexes(a, b) {
+	  let siblings = a.length === b.length && a.slice(0, -1).every((n, i) => n === b[i]);
+	  return siblings ?
+	  // If two routes are siblings, we should try to match the earlier sibling
+	  // first. This allows people to have fine-grained control over the matching
+	  // behavior by simply putting routes with identical paths in the order they
+	  // want them tried.
+	  a[a.length - 1] - b[b.length - 1] :
+	  // Otherwise, it doesn't really make sense to rank non-siblings by index,
+	  // so they sort equally.
+	  0;
+	}
+	function matchRouteBranch(branch, pathname) {
+	  let {
+	    routesMeta
+	  } = branch;
+	  let matchedParams = {};
+	  let matchedPathname = "/";
+	  let matches = [];
+	  for (let i = 0; i < routesMeta.length; ++i) {
+	    let meta = routesMeta[i];
+	    let end = i === routesMeta.length - 1;
+	    let remainingPathname = matchedPathname === "/" ? pathname : pathname.slice(matchedPathname.length) || "/";
+	    let match = matchPath({
+	      path: meta.relativePath,
+	      caseSensitive: meta.caseSensitive,
+	      end
+	    }, remainingPathname);
+	    if (!match) return null;
+	    Object.assign(matchedParams, match.params);
+	    let route = meta.route;
+	    matches.push({
+	      // TODO: Can this as be avoided?
+	      params: matchedParams,
+	      pathname: joinPaths([matchedPathname, match.pathname]),
+	      pathnameBase: normalizePathname(joinPaths([matchedPathname, match.pathnameBase])),
+	      route
+	    });
+	    if (match.pathnameBase !== "/") {
+	      matchedPathname = joinPaths([matchedPathname, match.pathnameBase]);
+	    }
+	  }
+	  return matches;
+	}
+	/**
+	 * Performs pattern matching on a URL pathname and returns information about
+	 * the match.
+	 *
+	 * @see https://reactrouter.com/utils/match-path
+	 */
+	function matchPath(pattern, pathname) {
+	  if (typeof pattern === "string") {
+	    pattern = {
+	      path: pattern,
+	      caseSensitive: false,
+	      end: true
+	    };
+	  }
+	  let [matcher, compiledParams] = compilePath(pattern.path, pattern.caseSensitive, pattern.end);
+	  let match = pathname.match(matcher);
+	  if (!match) return null;
+	  let matchedPathname = match[0];
+	  let pathnameBase = matchedPathname.replace(/(.)\/+$/, "$1");
+	  let captureGroups = match.slice(1);
+	  let params = compiledParams.reduce((memo, _ref, index) => {
+	    let {
+	      paramName,
+	      isOptional
+	    } = _ref;
+	    // We need to compute the pathnameBase here using the raw splat value
+	    // instead of using params["*"] later because it will be decoded then
+	    if (paramName === "*") {
+	      let splatValue = captureGroups[index] || "";
+	      pathnameBase = matchedPathname.slice(0, matchedPathname.length - splatValue.length).replace(/(.)\/+$/, "$1");
+	    }
+	    const value = captureGroups[index];
+	    if (isOptional && !value) {
+	      memo[paramName] = undefined;
+	    } else {
+	      memo[paramName] = safelyDecodeURIComponent(value || "", paramName);
+	    }
+	    return memo;
+	  }, {});
+	  return {
+	    params,
+	    pathname: matchedPathname,
+	    pathnameBase,
+	    pattern
+	  };
+	}
+	function compilePath(path, caseSensitive, end) {
+	  if (caseSensitive === void 0) {
+	    caseSensitive = false;
+	  }
+	  if (end === void 0) {
+	    end = true;
+	  }
+	  warning(path === "*" || !path.endsWith("*") || path.endsWith("/*"), "Route path \"" + path + "\" will be treated as if it were " + ("\"" + path.replace(/\*$/, "/*") + "\" because the `*` character must ") + "always follow a `/` in the pattern. To get rid of this warning, " + ("please change the route path to \"" + path.replace(/\*$/, "/*") + "\"."));
+	  let params = [];
+	  let regexpSource = "^" + path.replace(/\/*\*?$/, "") // Ignore trailing / and /*, we'll handle it below
+	  .replace(/^\/*/, "/") // Make sure it has a leading /
+	  .replace(/[\\.*+^${}|()[\]]/g, "\\$&") // Escape special regex chars
+	  .replace(/\/:(\w+)(\?)?/g, (_, paramName, isOptional) => {
+	    params.push({
+	      paramName,
+	      isOptional: isOptional != null
+	    });
+	    return isOptional ? "/?([^\\/]+)?" : "/([^\\/]+)";
+	  });
+	  if (path.endsWith("*")) {
+	    params.push({
+	      paramName: "*"
+	    });
+	    regexpSource += path === "*" || path === "/*" ? "(.*)$" // Already matched the initial /, just match the rest
+	    : "(?:\\/(.+)|\\/*)$"; // Don't include the / in params["*"]
+	  } else if (end) {
+	    // When matching to the end, ignore trailing slashes
+	    regexpSource += "\\/*$";
+	  } else if (path !== "" && path !== "/") {
+	    // If our path is non-empty and contains anything beyond an initial slash,
+	    // then we have _some_ form of path in our regex, so we should expect to
+	    // match only if we find the end of this path segment.  Look for an optional
+	    // non-captured trailing slash (to match a portion of the URL) or the end
+	    // of the path (if we've matched to the end).  We used to do this with a
+	    // word boundary but that gives false positives on routes like
+	    // /user-preferences since `-` counts as a word boundary.
+	    regexpSource += "(?:(?=\\/|$))";
+	  } else ;
+	  let matcher = new RegExp(regexpSource, caseSensitive ? undefined : "i");
+	  return [matcher, params];
+	}
+	function safelyDecodeURI(value) {
+	  try {
+	    return decodeURI(value);
+	  } catch (error) {
+	    warning(false, "The URL path \"" + value + "\" could not be decoded because it is is a " + "malformed URL segment. This is probably due to a bad percent " + ("encoding (" + error + ")."));
+	    return value;
+	  }
+	}
+	function safelyDecodeURIComponent(value, paramName) {
+	  try {
+	    return decodeURIComponent(value);
+	  } catch (error) {
+	    warning(false, "The value for the URL param \"" + paramName + "\" will not be decoded because" + (" the string \"" + value + "\" is a malformed URL segment. This is probably") + (" due to a bad percent encoding (" + error + ")."));
+	    return value;
+	  }
+	}
+	/**
+	 * @private
+	 */
+	function stripBasename(pathname, basename) {
+	  if (basename === "/") return pathname;
+	  if (!pathname.toLowerCase().startsWith(basename.toLowerCase())) {
+	    return null;
+	  }
+	  // We want to leave trailing slash behavior in the user's control, so if they
+	  // specify a basename with a trailing slash, we should support it
+	  let startIndex = basename.endsWith("/") ? basename.length - 1 : basename.length;
+	  let nextChar = pathname.charAt(startIndex);
+	  if (nextChar && nextChar !== "/") {
+	    // pathname does not start with basename/
+	    return null;
+	  }
+	  return pathname.slice(startIndex) || "/";
+	}
+	/**
+	 * Returns a resolved path object relative to the given pathname.
+	 *
+	 * @see https://reactrouter.com/utils/resolve-path
+	 */
+	function resolvePath(to, fromPathname) {
+	  if (fromPathname === void 0) {
+	    fromPathname = "/";
+	  }
+	  let {
+	    pathname: toPathname,
+	    search = "",
+	    hash = ""
+	  } = typeof to === "string" ? parsePath(to) : to;
+	  let pathname = toPathname ? toPathname.startsWith("/") ? toPathname : resolvePathname(toPathname, fromPathname) : fromPathname;
+	  return {
+	    pathname,
+	    search: normalizeSearch(search),
+	    hash: normalizeHash(hash)
+	  };
+	}
+	function resolvePathname(relativePath, fromPathname) {
+	  let segments = fromPathname.replace(/\/+$/, "").split("/");
+	  let relativeSegments = relativePath.split("/");
+	  relativeSegments.forEach(segment => {
+	    if (segment === "..") {
+	      // Keep the root "" segment so the pathname starts at /
+	      if (segments.length > 1) segments.pop();
+	    } else if (segment !== ".") {
+	      segments.push(segment);
+	    }
+	  });
+	  return segments.length > 1 ? segments.join("/") : "/";
+	}
+	function getInvalidPathError(char, field, dest, path) {
+	  return "Cannot include a '" + char + "' character in a manually specified " + ("`to." + field + "` field [" + JSON.stringify(path) + "].  Please separate it out to the ") + ("`to." + dest + "` field. Alternatively you may provide the full path as ") + "a string in <Link to=\"...\"> and the router will parse it for you.";
+	}
+	/**
+	 * @private
+	 *
+	 * When processing relative navigation we want to ignore ancestor routes that
+	 * do not contribute to the path, such that index/pathless layout routes don't
+	 * interfere.
+	 *
+	 * For example, when moving a route element into an index route and/or a
+	 * pathless layout route, relative link behavior contained within should stay
+	 * the same.  Both of the following examples should link back to the root:
+	 *
+	 *   <Route path="/">
+	 *     <Route path="accounts" element={<Link to=".."}>
+	 *   </Route>
+	 *
+	 *   <Route path="/">
+	 *     <Route path="accounts">
+	 *       <Route element={<AccountsLayout />}>       // <-- Does not contribute
+	 *         <Route index element={<Link to=".."} />  // <-- Does not contribute
+	 *       </Route
+	 *     </Route>
+	 *   </Route>
+	 */
+	function getPathContributingMatches(matches) {
+	  return matches.filter((match, index) => index === 0 || match.route.path && match.route.path.length > 0);
+	}
+	// Return the array of pathnames for the current route matches - used to
+	// generate the routePathnames input for resolveTo()
+	function getResolveToMatches(matches, v7_relativeSplatPath) {
+	  let pathMatches = getPathContributingMatches(matches);
+	  // When v7_relativeSplatPath is enabled, use the full pathname for the leaf
+	  // match so we include splat values for "." links.  See:
+	  // https://github.com/remix-run/react-router/issues/11052#issuecomment-1836589329
+	  if (v7_relativeSplatPath) {
+	    return pathMatches.map((match, idx) => idx === matches.length - 1 ? match.pathname : match.pathnameBase);
+	  }
+	  return pathMatches.map(match => match.pathnameBase);
+	}
+	/**
+	 * @private
+	 */
+	function resolveTo(toArg, routePathnames, locationPathname, isPathRelative) {
+	  if (isPathRelative === void 0) {
+	    isPathRelative = false;
+	  }
+	  let to;
+	  if (typeof toArg === "string") {
+	    to = parsePath(toArg);
+	  } else {
+	    to = _extends$6({}, toArg);
+	    invariant(!to.pathname || !to.pathname.includes("?"), getInvalidPathError("?", "pathname", "search", to));
+	    invariant(!to.pathname || !to.pathname.includes("#"), getInvalidPathError("#", "pathname", "hash", to));
+	    invariant(!to.search || !to.search.includes("#"), getInvalidPathError("#", "search", "hash", to));
+	  }
+	  let isEmptyPath = toArg === "" || to.pathname === "";
+	  let toPathname = isEmptyPath ? "/" : to.pathname;
+	  let from;
+	  // Routing is relative to the current pathname if explicitly requested.
+	  //
+	  // If a pathname is explicitly provided in `to`, it should be relative to the
+	  // route context. This is explained in `Note on `<Link to>` values` in our
+	  // migration guide from v5 as a means of disambiguation between `to` values
+	  // that begin with `/` and those that do not. However, this is problematic for
+	  // `to` values that do not provide a pathname. `to` can simply be a search or
+	  // hash string, in which case we should assume that the navigation is relative
+	  // to the current location's pathname and *not* the route pathname.
+	  if (toPathname == null) {
+	    from = locationPathname;
+	  } else if (isPathRelative) {
+	    let fromSegments = routePathnames.length === 0 ? [] : routePathnames[routePathnames.length - 1].replace(/^\//, "").split("/");
+	    if (toPathname.startsWith("..")) {
+	      let toSegments = toPathname.split("/");
+	      // With relative="path", each leading .. segment means "go up one URL segment"
+	      while (toSegments[0] === "..") {
+	        toSegments.shift();
+	        fromSegments.pop();
+	      }
+	      to.pathname = toSegments.join("/");
+	    }
+	    from = "/" + fromSegments.join("/");
+	  } else {
+	    let routePathnameIndex = routePathnames.length - 1;
+	    if (toPathname.startsWith("..")) {
+	      let toSegments = toPathname.split("/");
+	      // With relative="route" (the default), each leading .. segment means
+	      // "go up one route" instead of "go up one URL segment".  This is a key
+	      // difference from how <a href> works and a major reason we call this a
+	      // "to" value instead of a "href".
+	      while (toSegments[0] === "..") {
+	        toSegments.shift();
+	        routePathnameIndex -= 1;
+	      }
+	      to.pathname = toSegments.join("/");
+	    }
+	    // If there are more ".." segments than parent routes, resolve relative to
+	    // the root / URL.
+	    from = routePathnameIndex >= 0 ? routePathnames[routePathnameIndex] : "/";
+	  }
+	  let path = resolvePath(to, from);
+	  // Ensure the pathname has a trailing slash if the original "to" had one
+	  let hasExplicitTrailingSlash = toPathname && toPathname !== "/" && toPathname.endsWith("/");
+	  // Or if this was a link to the current path which has a trailing slash
+	  let hasCurrentTrailingSlash = (isEmptyPath || toPathname === ".") && locationPathname.endsWith("/");
+	  if (!path.pathname.endsWith("/") && (hasExplicitTrailingSlash || hasCurrentTrailingSlash)) {
+	    path.pathname += "/";
+	  }
+	  return path;
+	}
+	/**
+	 * @private
+	 */
+	const joinPaths = paths => paths.join("/").replace(/\/\/+/g, "/");
+	/**
+	 * @private
+	 */
+	const normalizePathname = pathname => pathname.replace(/\/+$/, "").replace(/^\/*/, "/");
+	/**
+	 * @private
+	 */
+	const normalizeSearch = search => !search || search === "?" ? "" : search.startsWith("?") ? search : "?" + search;
+	/**
+	 * @private
+	 */
+	const normalizeHash = hash => !hash || hash === "#" ? "" : hash.startsWith("#") ? hash : "#" + hash;
+	/**
+	 * Check if the given error is an ErrorResponse generated from a 4xx/5xx
+	 * Response thrown from an action/loader
+	 */
+	function isRouteErrorResponse(error) {
+	  return error != null && typeof error.status === "number" && typeof error.statusText === "string" && typeof error.internal === "boolean" && "data" in error;
+	}
+	const validMutationMethodsArr = ["post", "put", "patch", "delete"];
+	["get", ...validMutationMethodsArr];
+
+	/**
+	 * React Router v6.21.0
+	 *
+	 * Copyright (c) Remix Software Inc.
+	 *
+	 * This source code is licensed under the MIT license found in the
+	 * LICENSE.md file in the root directory of this source tree.
+	 *
+	 * @license MIT
+	 */
+	function _extends$5() {
+	  _extends$5 = Object.assign ? Object.assign.bind() : function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$5.apply(this, arguments);
+	}
+
+	// Create react-specific types from the agnostic types in @remix-run/router to
+	// export from react-router
+	const DataRouterContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  DataRouterContext.displayName = "DataRouter";
+	}
+	const DataRouterStateContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  DataRouterStateContext.displayName = "DataRouterState";
+	}
+	const AwaitContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  AwaitContext.displayName = "Await";
+	}
+
+	/**
+	 * A Navigator is a "location changer"; it's how you get to different locations.
+	 *
+	 * Every history instance conforms to the Navigator interface, but the
+	 * distinction is useful primarily when it comes to the low-level `<Router>` API
+	 * where both the location and a navigator must be provided separately in order
+	 * to avoid "tearing" that may occur in a suspense-enabled app if the action
+	 * and/or location were to be read directly from the history instance.
+	 */
+
+	const NavigationContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  NavigationContext.displayName = "Navigation";
+	}
+	const LocationContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  LocationContext.displayName = "Location";
+	}
+	const RouteContext = /*#__PURE__*/reactExports.createContext({
+	  outlet: null,
+	  matches: [],
+	  isDataRoute: false
+	});
+	{
+	  RouteContext.displayName = "Route";
+	}
+	const RouteErrorContext = /*#__PURE__*/reactExports.createContext(null);
+	{
+	  RouteErrorContext.displayName = "RouteError";
+	}
+
+	/**
+	 * Returns the full href for the given "to" value. This is useful for building
+	 * custom links that are also accessible and preserve right-click behavior.
+	 *
+	 * @see https://reactrouter.com/hooks/use-href
+	 */
+	function useHref(to, _temp) {
+	  let {
+	    relative
+	  } = _temp === void 0 ? {} : _temp;
+	  !useInRouterContext() ? invariant(false,
+	  // TODO: This error is probably because they somehow have 2 versions of the
+	  // router loaded. We can help them understand how to avoid that.
+	  "useHref() may be used only in the context of a <Router> component.")  : void 0;
+	  let {
+	    basename,
+	    navigator
+	  } = reactExports.useContext(NavigationContext);
+	  let {
+	    hash,
+	    pathname,
+	    search
+	  } = useResolvedPath(to, {
+	    relative
+	  });
+	  let joinedPathname = pathname;
+
+	  // If we're operating within a basename, prepend it to the pathname prior
+	  // to creating the href.  If this is a root navigation, then just use the raw
+	  // basename which allows the basename to have full control over the presence
+	  // of a trailing slash on root links
+	  if (basename !== "/") {
+	    joinedPathname = pathname === "/" ? basename : joinPaths([basename, pathname]);
+	  }
+	  return navigator.createHref({
+	    pathname: joinedPathname,
+	    search,
+	    hash
+	  });
+	}
+
+	/**
+	 * Returns true if this component is a descendant of a `<Router>`.
+	 *
+	 * @see https://reactrouter.com/hooks/use-in-router-context
+	 */
+	function useInRouterContext() {
+	  return reactExports.useContext(LocationContext) != null;
+	}
+
+	/**
+	 * Returns the current location object, which represents the current URL in web
+	 * browsers.
+	 *
+	 * Note: If you're using this it may mean you're doing some of your own
+	 * "routing" in your app, and we'd like to know what your use case is. We may
+	 * be able to provide something higher-level to better suit your needs.
+	 *
+	 * @see https://reactrouter.com/hooks/use-location
+	 */
+	function useLocation() {
+	  !useInRouterContext() ? invariant(false,
+	  // TODO: This error is probably because they somehow have 2 versions of the
+	  // router loaded. We can help them understand how to avoid that.
+	  "useLocation() may be used only in the context of a <Router> component.")  : void 0;
+	  return reactExports.useContext(LocationContext).location;
+	}
+
+	/**
+	 * The interface for the navigate() function returned from useNavigate().
+	 */
+
+	const navigateEffectWarning = "You should call navigate() in a React.useEffect(), not when " + "your component is first rendered.";
+
+	// Mute warnings for calls to useNavigate in SSR environments
+	function useIsomorphicLayoutEffect(cb) {
+	  let isStatic = reactExports.useContext(NavigationContext).static;
+	  if (!isStatic) {
+	    // We should be able to get rid of this once react 18.3 is released
+	    // See: https://github.com/facebook/react/pull/26395
+	    // eslint-disable-next-line react-hooks/rules-of-hooks
+	    reactExports.useLayoutEffect(cb);
+	  }
+	}
+
+	/**
+	 * Returns an imperative method for changing the location. Used by `<Link>`s, but
+	 * may also be used by other elements to change the location.
+	 *
+	 * @see https://reactrouter.com/hooks/use-navigate
+	 */
+	function useNavigate() {
+	  let {
+	    isDataRoute
+	  } = reactExports.useContext(RouteContext);
+	  // Conditional usage is OK here because the usage of a data router is static
+	  // eslint-disable-next-line react-hooks/rules-of-hooks
+	  return isDataRoute ? useNavigateStable() : useNavigateUnstable();
+	}
+	function useNavigateUnstable() {
+	  !useInRouterContext() ? invariant(false,
+	  // TODO: This error is probably because they somehow have 2 versions of the
+	  // router loaded. We can help them understand how to avoid that.
+	  "useNavigate() may be used only in the context of a <Router> component.")  : void 0;
+	  let dataRouterContext = reactExports.useContext(DataRouterContext);
+	  let {
+	    basename,
+	    future,
+	    navigator
+	  } = reactExports.useContext(NavigationContext);
+	  let {
+	    matches
+	  } = reactExports.useContext(RouteContext);
+	  let {
+	    pathname: locationPathname
+	  } = useLocation();
+	  let routePathnamesJson = JSON.stringify(getResolveToMatches(matches, future.v7_relativeSplatPath));
+	  let activeRef = reactExports.useRef(false);
+	  useIsomorphicLayoutEffect(() => {
+	    activeRef.current = true;
+	  });
+	  let navigate = reactExports.useCallback(function (to, options) {
+	    if (options === void 0) {
+	      options = {};
+	    }
+	    warning(activeRef.current, navigateEffectWarning) ;
+
+	    // Short circuit here since if this happens on first render the navigate
+	    // is useless because we haven't wired up our history listener yet
+	    if (!activeRef.current) return;
+	    if (typeof to === "number") {
+	      navigator.go(to);
+	      return;
+	    }
+	    let path = resolveTo(to, JSON.parse(routePathnamesJson), locationPathname, options.relative === "path");
+
+	    // If we're operating within a basename, prepend it to the pathname prior
+	    // to handing off to history (but only if we're not in a data router,
+	    // otherwise it'll prepend the basename inside of the router).
+	    // If this is a root navigation, then we navigate to the raw basename
+	    // which allows the basename to have full control over the presence of a
+	    // trailing slash on root links
+	    if (dataRouterContext == null && basename !== "/") {
+	      path.pathname = path.pathname === "/" ? basename : joinPaths([basename, path.pathname]);
+	    }
+	    (!!options.replace ? navigator.replace : navigator.push)(path, options.state, options);
+	  }, [basename, navigator, routePathnamesJson, locationPathname, dataRouterContext]);
+	  return navigate;
+	}
+
+	/**
+	 * Returns an object of key/value pairs of the dynamic params from the current
+	 * URL that were matched by the route path.
+	 *
+	 * @see https://reactrouter.com/hooks/use-params
+	 */
+	function useParams() {
+	  let {
+	    matches
+	  } = reactExports.useContext(RouteContext);
+	  let routeMatch = matches[matches.length - 1];
+	  return routeMatch ? routeMatch.params : {};
+	}
+
+	/**
+	 * Resolves the pathname of the given `to` value against the current location.
+	 *
+	 * @see https://reactrouter.com/hooks/use-resolved-path
+	 */
+	function useResolvedPath(to, _temp2) {
+	  let {
+	    relative
+	  } = _temp2 === void 0 ? {} : _temp2;
+	  let {
+	    future
+	  } = reactExports.useContext(NavigationContext);
+	  let {
+	    matches
+	  } = reactExports.useContext(RouteContext);
+	  let {
+	    pathname: locationPathname
+	  } = useLocation();
+	  let routePathnamesJson = JSON.stringify(getResolveToMatches(matches, future.v7_relativeSplatPath));
+	  return reactExports.useMemo(() => resolveTo(to, JSON.parse(routePathnamesJson), locationPathname, relative === "path"), [to, routePathnamesJson, locationPathname, relative]);
+	}
+
+	/**
+	 * Returns the element of the route that matched the current location, prepared
+	 * with the correct context to render the remainder of the route tree. Route
+	 * elements in the tree must render an `<Outlet>` to render their child route's
+	 * element.
+	 *
+	 * @see https://reactrouter.com/hooks/use-routes
+	 */
+	function useRoutes(routes, locationArg) {
+	  return useRoutesImpl(routes, locationArg);
+	}
+
+	// Internal implementation with accept optional param for RouterProvider usage
+	function useRoutesImpl(routes, locationArg, dataRouterState, future) {
+	  !useInRouterContext() ? invariant(false,
+	  // TODO: This error is probably because they somehow have 2 versions of the
+	  // router loaded. We can help them understand how to avoid that.
+	  "useRoutes() may be used only in the context of a <Router> component.")  : void 0;
+	  let {
+	    navigator
+	  } = reactExports.useContext(NavigationContext);
+	  let {
+	    matches: parentMatches
+	  } = reactExports.useContext(RouteContext);
+	  let routeMatch = parentMatches[parentMatches.length - 1];
+	  let parentParams = routeMatch ? routeMatch.params : {};
+	  let parentPathname = routeMatch ? routeMatch.pathname : "/";
+	  let parentPathnameBase = routeMatch ? routeMatch.pathnameBase : "/";
+	  let parentRoute = routeMatch && routeMatch.route;
+	  {
+	    // You won't get a warning about 2 different <Routes> under a <Route>
+	    // without a trailing *, but this is a best-effort warning anyway since we
+	    // cannot even give the warning unless they land at the parent route.
+	    //
+	    // Example:
+	    //
+	    // <Routes>
+	    //   {/* This route path MUST end with /* because otherwise
+	    //       it will never match /blog/post/123 */}
+	    //   <Route path="blog" element={<Blog />} />
+	    //   <Route path="blog/feed" element={<BlogFeed />} />
+	    // </Routes>
+	    //
+	    // function Blog() {
+	    //   return (
+	    //     <Routes>
+	    //       <Route path="post/:id" element={<Post />} />
+	    //     </Routes>
+	    //   );
+	    // }
+	    let parentPath = parentRoute && parentRoute.path || "";
+	    warningOnce(parentPathname, !parentRoute || parentPath.endsWith("*"), "You rendered descendant <Routes> (or called `useRoutes()`) at " + ("\"" + parentPathname + "\" (under <Route path=\"" + parentPath + "\">) but the ") + "parent route path has no trailing \"*\". This means if you navigate " + "deeper, the parent won't match anymore and therefore the child " + "routes will never render.\n\n" + ("Please change the parent <Route path=\"" + parentPath + "\"> to <Route ") + ("path=\"" + (parentPath === "/" ? "*" : parentPath + "/*") + "\">."));
+	  }
+	  let locationFromContext = useLocation();
+	  let location;
+	  if (locationArg) {
+	    var _parsedLocationArg$pa;
+	    let parsedLocationArg = typeof locationArg === "string" ? parsePath(locationArg) : locationArg;
+	    !(parentPathnameBase === "/" || ((_parsedLocationArg$pa = parsedLocationArg.pathname) == null ? void 0 : _parsedLocationArg$pa.startsWith(parentPathnameBase))) ? invariant(false, "When overriding the location using `<Routes location>` or `useRoutes(routes, location)`, " + "the location pathname must begin with the portion of the URL pathname that was " + ("matched by all parent routes. The current pathname base is \"" + parentPathnameBase + "\" ") + ("but pathname \"" + parsedLocationArg.pathname + "\" was given in the `location` prop."))  : void 0;
+	    location = parsedLocationArg;
+	  } else {
+	    location = locationFromContext;
+	  }
+	  let pathname = location.pathname || "/";
+	  let remainingPathname = parentPathnameBase === "/" ? pathname : pathname.slice(parentPathnameBase.length) || "/";
+	  let matches = matchRoutes(routes, {
+	    pathname: remainingPathname
+	  });
+	  {
+	    warning(parentRoute || matches != null, "No routes matched location \"" + location.pathname + location.search + location.hash + "\" ") ;
+	    warning(matches == null || matches[matches.length - 1].route.element !== undefined || matches[matches.length - 1].route.Component !== undefined, "Matched leaf route at location \"" + location.pathname + location.search + location.hash + "\" " + "does not have an element or Component. This means it will render an <Outlet /> with a " + "null value by default resulting in an \"empty\" page.") ;
+	  }
+	  let renderedMatches = _renderMatches(matches && matches.map(match => Object.assign({}, match, {
+	    params: Object.assign({}, parentParams, match.params),
+	    pathname: joinPaths([parentPathnameBase,
+	    // Re-encode pathnames that were decoded inside matchRoutes
+	    navigator.encodeLocation ? navigator.encodeLocation(match.pathname).pathname : match.pathname]),
+	    pathnameBase: match.pathnameBase === "/" ? parentPathnameBase : joinPaths([parentPathnameBase,
+	    // Re-encode pathnames that were decoded inside matchRoutes
+	    navigator.encodeLocation ? navigator.encodeLocation(match.pathnameBase).pathname : match.pathnameBase])
+	  })), parentMatches, dataRouterState, future);
+
+	  // When a user passes in a `locationArg`, the associated routes need to
+	  // be wrapped in a new `LocationContext.Provider` in order for `useLocation`
+	  // to use the scoped location instead of the global location.
+	  if (locationArg && renderedMatches) {
+	    return /*#__PURE__*/reactExports.createElement(LocationContext.Provider, {
+	      value: {
+	        location: _extends$5({
+	          pathname: "/",
+	          search: "",
+	          hash: "",
+	          state: null,
+	          key: "default"
+	        }, location),
+	        navigationType: Action.Pop
+	      }
+	    }, renderedMatches);
+	  }
+	  return renderedMatches;
+	}
+	function DefaultErrorComponent() {
+	  let error = useRouteError();
+	  let message = isRouteErrorResponse(error) ? error.status + " " + error.statusText : error instanceof Error ? error.message : JSON.stringify(error);
+	  let stack = error instanceof Error ? error.stack : null;
+	  let lightgrey = "rgba(200,200,200, 0.5)";
+	  let preStyles = {
+	    padding: "0.5rem",
+	    backgroundColor: lightgrey
+	  };
+	  let codeStyles = {
+	    padding: "2px 4px",
+	    backgroundColor: lightgrey
+	  };
+	  let devInfo = null;
+	  {
+	    console.error("Error handled by React Router default ErrorBoundary:", error);
+	    devInfo = /*#__PURE__*/reactExports.createElement(reactExports.Fragment, null, /*#__PURE__*/reactExports.createElement("p", null, "\uD83D\uDCBF Hey developer \uD83D\uDC4B"), /*#__PURE__*/reactExports.createElement("p", null, "You can provide a way better UX than this when your app throws errors by providing your own ", /*#__PURE__*/reactExports.createElement("code", {
+	      style: codeStyles
+	    }, "ErrorBoundary"), " or", " ", /*#__PURE__*/reactExports.createElement("code", {
+	      style: codeStyles
+	    }, "errorElement"), " prop on your route."));
+	  }
+	  return /*#__PURE__*/reactExports.createElement(reactExports.Fragment, null, /*#__PURE__*/reactExports.createElement("h2", null, "Unexpected Application Error!"), /*#__PURE__*/reactExports.createElement("h3", {
+	    style: {
+	      fontStyle: "italic"
+	    }
+	  }, message), stack ? /*#__PURE__*/reactExports.createElement("pre", {
+	    style: preStyles
+	  }, stack) : null, devInfo);
+	}
+	const defaultErrorElement = /*#__PURE__*/reactExports.createElement(DefaultErrorComponent, null);
+	class RenderErrorBoundary extends reactExports.Component {
+	  constructor(props) {
+	    super(props);
+	    this.state = {
+	      location: props.location,
+	      revalidation: props.revalidation,
+	      error: props.error
+	    };
+	  }
+	  static getDerivedStateFromError(error) {
+	    return {
+	      error: error
+	    };
+	  }
+	  static getDerivedStateFromProps(props, state) {
+	    // When we get into an error state, the user will likely click "back" to the
+	    // previous page that didn't have an error. Because this wraps the entire
+	    // application, that will have no effect--the error page continues to display.
+	    // This gives us a mechanism to recover from the error when the location changes.
+	    //
+	    // Whether we're in an error state or not, we update the location in state
+	    // so that when we are in an error state, it gets reset when a new location
+	    // comes in and the user recovers from the error.
+	    if (state.location !== props.location || state.revalidation !== "idle" && props.revalidation === "idle") {
+	      return {
+	        error: props.error,
+	        location: props.location,
+	        revalidation: props.revalidation
+	      };
+	    }
+
+	    // If we're not changing locations, preserve the location but still surface
+	    // any new errors that may come through. We retain the existing error, we do
+	    // this because the error provided from the app state may be cleared without
+	    // the location changing.
+	    return {
+	      error: props.error !== undefined ? props.error : state.error,
+	      location: state.location,
+	      revalidation: props.revalidation || state.revalidation
+	    };
+	  }
+	  componentDidCatch(error, errorInfo) {
+	    console.error("React Router caught the following error during render", error, errorInfo);
+	  }
+	  render() {
+	    return this.state.error !== undefined ? /*#__PURE__*/reactExports.createElement(RouteContext.Provider, {
+	      value: this.props.routeContext
+	    }, /*#__PURE__*/reactExports.createElement(RouteErrorContext.Provider, {
+	      value: this.state.error,
+	      children: this.props.component
+	    })) : this.props.children;
+	  }
+	}
+	function RenderedRoute(_ref) {
+	  let {
+	    routeContext,
+	    match,
+	    children
+	  } = _ref;
+	  let dataRouterContext = reactExports.useContext(DataRouterContext);
+
+	  // Track how deep we got in our render pass to emulate SSR componentDidCatch
+	  // in a DataStaticRouter
+	  if (dataRouterContext && dataRouterContext.static && dataRouterContext.staticContext && (match.route.errorElement || match.route.ErrorBoundary)) {
+	    dataRouterContext.staticContext._deepestRenderedBoundaryId = match.route.id;
+	  }
+	  return /*#__PURE__*/reactExports.createElement(RouteContext.Provider, {
+	    value: routeContext
+	  }, children);
+	}
+	function _renderMatches(matches, parentMatches, dataRouterState, future) {
+	  var _dataRouterState2;
+	  if (parentMatches === void 0) {
+	    parentMatches = [];
+	  }
+	  if (dataRouterState === void 0) {
+	    dataRouterState = null;
+	  }
+	  if (future === void 0) {
+	    future = null;
+	  }
+	  if (matches == null) {
+	    var _dataRouterState;
+	    if ((_dataRouterState = dataRouterState) != null && _dataRouterState.errors) {
+	      // Don't bail if we have data router errors so we can render them in the
+	      // boundary.  Use the pre-matched (or shimmed) matches
+	      matches = dataRouterState.matches;
+	    } else {
+	      return null;
+	    }
+	  }
+	  let renderedMatches = matches;
+
+	  // If we have data errors, trim matches to the highest error boundary
+	  let errors = (_dataRouterState2 = dataRouterState) == null ? void 0 : _dataRouterState2.errors;
+	  if (errors != null) {
+	    let errorIndex = renderedMatches.findIndex(m => m.route.id && (errors == null ? void 0 : errors[m.route.id]));
+	    !(errorIndex >= 0) ? invariant(false, "Could not find a matching route for errors on route IDs: " + Object.keys(errors).join(","))  : void 0;
+	    renderedMatches = renderedMatches.slice(0, Math.min(renderedMatches.length, errorIndex + 1));
+	  }
+
+	  // If we're in a partial hydration mode, detect if we need to render down to
+	  // a given HydrateFallback while we load the rest of the hydration data
+	  let renderFallback = false;
+	  let fallbackIndex = -1;
+	  if (dataRouterState && future && future.v7_partialHydration) {
+	    for (let i = 0; i < renderedMatches.length; i++) {
+	      let match = renderedMatches[i];
+	      // Track the deepest fallback up until the first route without data
+	      if (match.route.HydrateFallback || match.route.hydrateFallbackElement) {
+	        fallbackIndex = i;
+	      }
+	      if (match.route.loader && match.route.id && dataRouterState.loaderData[match.route.id] === undefined && (!dataRouterState.errors || dataRouterState.errors[match.route.id] === undefined)) {
+	        // We found the first route without data/errors which means it's loader
+	        // still needs to run.  Flag that we need to render a fallback and
+	        // render up until the appropriate fallback
+	        renderFallback = true;
+	        if (fallbackIndex >= 0) {
+	          renderedMatches = renderedMatches.slice(0, fallbackIndex + 1);
+	        } else {
+	          renderedMatches = [renderedMatches[0]];
+	        }
+	        break;
+	      }
+	    }
+	  }
+	  return renderedMatches.reduceRight((outlet, match, index) => {
+	    // Only data routers handle errors/fallbacks
+	    let error;
+	    let shouldRenderHydrateFallback = false;
+	    let errorElement = null;
+	    let hydrateFallbackElement = null;
+	    if (dataRouterState) {
+	      error = errors && match.route.id ? errors[match.route.id] : undefined;
+	      errorElement = match.route.errorElement || defaultErrorElement;
+	      if (renderFallback) {
+	        if (fallbackIndex < 0 && index === 0) {
+	          warningOnce("route-fallback", false, "No `HydrateFallback` element provided to render during initial hydration");
+	          shouldRenderHydrateFallback = true;
+	          hydrateFallbackElement = null;
+	        } else if (fallbackIndex === index) {
+	          shouldRenderHydrateFallback = true;
+	          hydrateFallbackElement = match.route.hydrateFallbackElement || null;
+	        }
+	      }
+	    }
+	    let matches = parentMatches.concat(renderedMatches.slice(0, index + 1));
+	    let getChildren = () => {
+	      let children;
+	      if (error) {
+	        children = errorElement;
+	      } else if (shouldRenderHydrateFallback) {
+	        children = hydrateFallbackElement;
+	      } else if (match.route.Component) {
+	        // Note: This is a de-optimized path since React won't re-use the
+	        // ReactElement since it's identity changes with each new
+	        // React.createElement call.  We keep this so folks can use
+	        // `<Route Component={...}>` in `<Routes>` but generally `Component`
+	        // usage is only advised in `RouterProvider` when we can convert it to
+	        // `element` ahead of time.
+	        children = /*#__PURE__*/reactExports.createElement(match.route.Component, null);
+	      } else if (match.route.element) {
+	        children = match.route.element;
+	      } else {
+	        children = outlet;
+	      }
+	      return /*#__PURE__*/reactExports.createElement(RenderedRoute, {
+	        match: match,
+	        routeContext: {
+	          outlet,
+	          matches,
+	          isDataRoute: dataRouterState != null
+	        },
+	        children: children
+	      });
+	    };
+	    // Only wrap in an error boundary within data router usages when we have an
+	    // ErrorBoundary/errorElement on this route.  Otherwise let it bubble up to
+	    // an ancestor ErrorBoundary/errorElement
+	    return dataRouterState && (match.route.ErrorBoundary || match.route.errorElement || index === 0) ? /*#__PURE__*/reactExports.createElement(RenderErrorBoundary, {
+	      location: dataRouterState.location,
+	      revalidation: dataRouterState.revalidation,
+	      component: errorElement,
+	      error: error,
+	      children: getChildren(),
+	      routeContext: {
+	        outlet: null,
+	        matches,
+	        isDataRoute: true
+	      }
+	    }) : getChildren();
+	  }, null);
+	}
+	var DataRouterHook$1 = /*#__PURE__*/function (DataRouterHook) {
+	  DataRouterHook["UseBlocker"] = "useBlocker";
+	  DataRouterHook["UseRevalidator"] = "useRevalidator";
+	  DataRouterHook["UseNavigateStable"] = "useNavigate";
+	  return DataRouterHook;
+	}(DataRouterHook$1 || {});
+	var DataRouterStateHook$1 = /*#__PURE__*/function (DataRouterStateHook) {
+	  DataRouterStateHook["UseBlocker"] = "useBlocker";
+	  DataRouterStateHook["UseLoaderData"] = "useLoaderData";
+	  DataRouterStateHook["UseActionData"] = "useActionData";
+	  DataRouterStateHook["UseRouteError"] = "useRouteError";
+	  DataRouterStateHook["UseNavigation"] = "useNavigation";
+	  DataRouterStateHook["UseRouteLoaderData"] = "useRouteLoaderData";
+	  DataRouterStateHook["UseMatches"] = "useMatches";
+	  DataRouterStateHook["UseRevalidator"] = "useRevalidator";
+	  DataRouterStateHook["UseNavigateStable"] = "useNavigate";
+	  DataRouterStateHook["UseRouteId"] = "useRouteId";
+	  return DataRouterStateHook;
+	}(DataRouterStateHook$1 || {});
+	function getDataRouterConsoleError$1(hookName) {
+	  return hookName + " must be used within a data router.  See https://reactrouter.com/routers/picking-a-router.";
+	}
+	function useDataRouterContext$1(hookName) {
+	  let ctx = reactExports.useContext(DataRouterContext);
+	  !ctx ? invariant(false, getDataRouterConsoleError$1(hookName))  : void 0;
+	  return ctx;
+	}
+	function useDataRouterState(hookName) {
+	  let state = reactExports.useContext(DataRouterStateContext);
+	  !state ? invariant(false, getDataRouterConsoleError$1(hookName))  : void 0;
+	  return state;
+	}
+	function useRouteContext(hookName) {
+	  let route = reactExports.useContext(RouteContext);
+	  !route ? invariant(false, getDataRouterConsoleError$1(hookName))  : void 0;
+	  return route;
+	}
+
+	// Internal version with hookName-aware debugging
+	function useCurrentRouteId(hookName) {
+	  let route = useRouteContext(hookName);
+	  let thisRoute = route.matches[route.matches.length - 1];
+	  !thisRoute.route.id ? invariant(false, hookName + " can only be used on routes that contain a unique \"id\"")  : void 0;
+	  return thisRoute.route.id;
+	}
+
+	/**
+	 * Returns the ID for the nearest contextual route
+	 */
+	function useRouteId() {
+	  return useCurrentRouteId(DataRouterStateHook$1.UseRouteId);
+	}
+
+	/**
+	 * Returns the nearest ancestor Route error, which could be a loader/action
+	 * error or a render error.  This is intended to be called from your
+	 * ErrorBoundary/errorElement to display a proper error message.
+	 */
+	function useRouteError() {
+	  var _state$errors;
+	  let error = reactExports.useContext(RouteErrorContext);
+	  let state = useDataRouterState(DataRouterStateHook$1.UseRouteError);
+	  let routeId = useCurrentRouteId(DataRouterStateHook$1.UseRouteError);
+
+	  // If this was a render error, we put it in a RouteError context inside
+	  // of RenderErrorBoundary
+	  if (error !== undefined) {
+	    return error;
+	  }
+
+	  // Otherwise look for errors from our data router state
+	  return (_state$errors = state.errors) == null ? void 0 : _state$errors[routeId];
+	}
+
+	/**
+	 * Stable version of useNavigate that is used when we are in the context of
+	 * a RouterProvider.
+	 */
+	function useNavigateStable() {
+	  let {
+	    router
+	  } = useDataRouterContext$1(DataRouterHook$1.UseNavigateStable);
+	  let id = useCurrentRouteId(DataRouterStateHook$1.UseNavigateStable);
+	  let activeRef = reactExports.useRef(false);
+	  useIsomorphicLayoutEffect(() => {
+	    activeRef.current = true;
+	  });
+	  let navigate = reactExports.useCallback(function (to, options) {
+	    if (options === void 0) {
+	      options = {};
+	    }
+	    warning(activeRef.current, navigateEffectWarning) ;
+
+	    // Short circuit here since if this happens on first render the navigate
+	    // is useless because we haven't wired up our router subscriber yet
+	    if (!activeRef.current) return;
+	    if (typeof to === "number") {
+	      router.navigate(to);
+	    } else {
+	      router.navigate(to, _extends$5({
+	        fromRouteId: id
+	      }, options));
+	    }
+	  }, [router, id]);
+	  return navigate;
+	}
+	const alreadyWarned = {};
+	function warningOnce(key, cond, message) {
+	  if (!cond && !alreadyWarned[key]) {
+	    alreadyWarned[key] = true;
+	    warning(false, message) ;
+	  }
+	}
+
+	/**
+	  Webpack + React 17 fails to compile on any of the following because webpack
+	  complains that `startTransition` doesn't exist in `React`:
+	  * import { startTransition } from "react"
+	  * import * as React from from "react";
+	    "startTransition" in React ? React.startTransition(() => setState()) : setState()
+	  * import * as React from from "react";
+	    "startTransition" in React ? React["startTransition"](() => setState()) : setState()
+
+	  Moving it to a constant such as the following solves the Webpack/React 17 issue:
+	  * import * as React from from "react";
+	    const START_TRANSITION = "startTransition";
+	    START_TRANSITION in React ? React[START_TRANSITION](() => setState()) : setState()
+
+	  However, that introduces webpack/terser minification issues in production builds
+	  in React 18 where minification/obfuscation ends up removing the call of
+	  React.startTransition entirely from the first half of the ternary.  Grabbing
+	  this exported reference once up front resolves that issue.
+
+	  See https://github.com/remix-run/react-router/issues/10579
+	*/
+	const START_TRANSITION$1 = "startTransition";
+	React$1[START_TRANSITION$1];
+	/**
+	 * Declares an element that should be rendered at a certain URL path.
+	 *
+	 * @see https://reactrouter.com/components/route
+	 */
+	function Route(_props) {
+	  invariant(false, "A <Route> is only ever to be used as the child of <Routes> element, " + "never rendered directly. Please wrap your <Route> in a <Routes>.") ;
+	}
+	/**
+	 * Provides location context for the rest of the app.
+	 *
+	 * Note: You usually won't render a `<Router>` directly. Instead, you'll render a
+	 * router that is more specific to your environment such as a `<BrowserRouter>`
+	 * in web browsers or a `<StaticRouter>` for server rendering.
+	 *
+	 * @see https://reactrouter.com/router-components/router
+	 */
+	function Router(_ref5) {
+	  let {
+	    basename: basenameProp = "/",
+	    children = null,
+	    location: locationProp,
+	    navigationType = Action.Pop,
+	    navigator,
+	    static: staticProp = false,
+	    future
+	  } = _ref5;
+	  !!useInRouterContext() ? invariant(false, "You cannot render a <Router> inside another <Router>." + " You should never have more than one in your app.")  : void 0;
+
+	  // Preserve trailing slashes on basename, so we can let the user control
+	  // the enforcement of trailing slashes throughout the app
+	  let basename = basenameProp.replace(/^\/*/, "/");
+	  let navigationContext = reactExports.useMemo(() => ({
+	    basename,
+	    navigator,
+	    static: staticProp,
+	    future: _extends$5({
+	      v7_relativeSplatPath: false
+	    }, future)
+	  }), [basename, future, navigator, staticProp]);
+	  if (typeof locationProp === "string") {
+	    locationProp = parsePath(locationProp);
+	  }
+	  let {
+	    pathname = "/",
+	    search = "",
+	    hash = "",
+	    state = null,
+	    key = "default"
+	  } = locationProp;
+	  let locationContext = reactExports.useMemo(() => {
+	    let trailingPathname = stripBasename(pathname, basename);
+	    if (trailingPathname == null) {
+	      return null;
+	    }
+	    return {
+	      location: {
+	        pathname: trailingPathname,
+	        search,
+	        hash,
+	        state,
+	        key
+	      },
+	      navigationType
+	    };
+	  }, [basename, pathname, search, hash, state, key, navigationType]);
+	  warning(locationContext != null, "<Router basename=\"" + basename + "\"> is not able to match the URL " + ("\"" + pathname + search + hash + "\" because it does not start with the ") + "basename, so the <Router> won't render anything.") ;
+	  if (locationContext == null) {
+	    return null;
+	  }
+	  return /*#__PURE__*/reactExports.createElement(NavigationContext.Provider, {
+	    value: navigationContext
+	  }, /*#__PURE__*/reactExports.createElement(LocationContext.Provider, {
+	    children: children,
+	    value: locationContext
+	  }));
+	}
+	/**
+	 * A container for a nested tree of `<Route>` elements that renders the branch
+	 * that best matches the current location.
+	 *
+	 * @see https://reactrouter.com/components/routes
+	 */
+	function Routes(_ref6) {
+	  let {
+	    children,
+	    location
+	  } = _ref6;
+	  return useRoutes(createRoutesFromChildren(children), location);
+	}
+	new Promise(() => {});
+
+	///////////////////////////////////////////////////////////////////////////////
+	// UTILS
+	///////////////////////////////////////////////////////////////////////////////
+
+	/**
+	 * Creates a route config from a React "children" object, which is usually
+	 * either a `<Route>` element or an array of them. Used internally by
+	 * `<Routes>` to create a route config from its children.
+	 *
+	 * @see https://reactrouter.com/utils/create-routes-from-children
+	 */
+	function createRoutesFromChildren(children, parentPath) {
+	  if (parentPath === void 0) {
+	    parentPath = [];
+	  }
+	  let routes = [];
+	  reactExports.Children.forEach(children, (element, index) => {
+	    if (! /*#__PURE__*/reactExports.isValidElement(element)) {
+	      // Ignore non-elements. This allows people to more easily inline
+	      // conditionals in their route config.
+	      return;
+	    }
+	    let treePath = [...parentPath, index];
+	    if (element.type === reactExports.Fragment) {
+	      // Transparently support React.Fragment and its children.
+	      routes.push.apply(routes, createRoutesFromChildren(element.props.children, treePath));
+	      return;
+	    }
+	    !(element.type === Route) ? invariant(false, "[" + (typeof element.type === "string" ? element.type : element.type.name) + "] is not a <Route> component. All component children of <Routes> must be a <Route> or <React.Fragment>")  : void 0;
+	    !(!element.props.index || !element.props.children) ? invariant(false, "An index route cannot have child routes.")  : void 0;
+	    let route = {
+	      id: element.props.id || treePath.join("-"),
+	      caseSensitive: element.props.caseSensitive,
+	      element: element.props.element,
+	      Component: element.props.Component,
+	      index: element.props.index,
+	      path: element.props.path,
+	      loader: element.props.loader,
+	      action: element.props.action,
+	      errorElement: element.props.errorElement,
+	      ErrorBoundary: element.props.ErrorBoundary,
+	      hasErrorBoundary: element.props.ErrorBoundary != null || element.props.errorElement != null,
+	      shouldRevalidate: element.props.shouldRevalidate,
+	      handle: element.props.handle,
+	      lazy: element.props.lazy
+	    };
+	    if (element.props.children) {
+	      route.children = createRoutesFromChildren(element.props.children, treePath);
+	    }
+	    routes.push(route);
+	  });
+	  return routes;
+	}
+
+	/**
+	 * React Router DOM v6.21.0
+	 *
+	 * Copyright (c) Remix Software Inc.
+	 *
+	 * This source code is licensed under the MIT license found in the
+	 * LICENSE.md file in the root directory of this source tree.
+	 *
+	 * @license MIT
+	 */
+	function _extends$4() {
+	  _extends$4 = Object.assign ? Object.assign.bind() : function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$4.apply(this, arguments);
+	}
+	function _objectWithoutPropertiesLoose$1(source, excluded) {
+	  if (source == null) return {};
+	  var target = {};
+	  var sourceKeys = Object.keys(source);
+	  var key, i;
+	  for (i = 0; i < sourceKeys.length; i++) {
+	    key = sourceKeys[i];
+	    if (excluded.indexOf(key) >= 0) continue;
+	    target[key] = source[key];
+	  }
+	  return target;
+	}
+	const defaultMethod = "get";
+	const defaultEncType = "application/x-www-form-urlencoded";
+	function isHtmlElement(object) {
+	  return object != null && typeof object.tagName === "string";
+	}
+	function isButtonElement(object) {
+	  return isHtmlElement(object) && object.tagName.toLowerCase() === "button";
+	}
+	function isFormElement(object) {
+	  return isHtmlElement(object) && object.tagName.toLowerCase() === "form";
+	}
+	function isInputElement(object) {
+	  return isHtmlElement(object) && object.tagName.toLowerCase() === "input";
+	}
+	function isModifiedEvent(event) {
+	  return !!(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
+	}
+	function shouldProcessLinkClick(event, target) {
+	  return event.button === 0 && (
+	  // Ignore everything but left clicks
+	  !target || target === "_self") &&
+	  // Let browser handle "target=_blank" etc.
+	  !isModifiedEvent(event) // Ignore clicks with modifier keys
+	  ;
+	}
+	// One-time check for submitter support
+	let _formDataSupportsSubmitter = null;
+	function isFormDataSubmitterSupported() {
+	  if (_formDataSupportsSubmitter === null) {
+	    try {
+	      new FormData(document.createElement("form"),
+	      // @ts-expect-error if FormData supports the submitter parameter, this will throw
+	      0);
+	      _formDataSupportsSubmitter = false;
+	    } catch (e) {
+	      _formDataSupportsSubmitter = true;
+	    }
+	  }
+	  return _formDataSupportsSubmitter;
+	}
+	const supportedFormEncTypes = new Set(["application/x-www-form-urlencoded", "multipart/form-data", "text/plain"]);
+	function getFormEncType(encType) {
+	  if (encType != null && !supportedFormEncTypes.has(encType)) {
+	    warning(false, "\"" + encType + "\" is not a valid `encType` for `<Form>`/`<fetcher.Form>` " + ("and will default to \"" + defaultEncType + "\"")) ;
+	    return null;
+	  }
+	  return encType;
+	}
+	function getFormSubmissionInfo(target, basename) {
+	  let method;
+	  let action;
+	  let encType;
+	  let formData;
+	  let body;
+	  if (isFormElement(target)) {
+	    // When grabbing the action from the element, it will have had the basename
+	    // prefixed to ensure non-JS scenarios work, so strip it since we'll
+	    // re-prefix in the router
+	    let attr = target.getAttribute("action");
+	    action = attr ? stripBasename(attr, basename) : null;
+	    method = target.getAttribute("method") || defaultMethod;
+	    encType = getFormEncType(target.getAttribute("enctype")) || defaultEncType;
+	    formData = new FormData(target);
+	  } else if (isButtonElement(target) || isInputElement(target) && (target.type === "submit" || target.type === "image")) {
+	    let form = target.form;
+	    if (form == null) {
+	      throw new Error("Cannot submit a <button> or <input type=\"submit\"> without a <form>");
+	    }
+	    // <button>/<input type="submit"> may override attributes of <form>
+	    // When grabbing the action from the element, it will have had the basename
+	    // prefixed to ensure non-JS scenarios work, so strip it since we'll
+	    // re-prefix in the router
+	    let attr = target.getAttribute("formaction") || form.getAttribute("action");
+	    action = attr ? stripBasename(attr, basename) : null;
+	    method = target.getAttribute("formmethod") || form.getAttribute("method") || defaultMethod;
+	    encType = getFormEncType(target.getAttribute("formenctype")) || getFormEncType(form.getAttribute("enctype")) || defaultEncType;
+	    // Build a FormData object populated from a form and submitter
+	    formData = new FormData(form, target);
+	    // If this browser doesn't support the `FormData(el, submitter)` format,
+	    // then tack on the submitter value at the end.  This is a lightweight
+	    // solution that is not 100% spec compliant.  For complete support in older
+	    // browsers, consider using the `formdata-submitter-polyfill` package
+	    if (!isFormDataSubmitterSupported()) {
+	      let {
+	        name,
+	        type,
+	        value
+	      } = target;
+	      if (type === "image") {
+	        let prefix = name ? name + "." : "";
+	        formData.append(prefix + "x", "0");
+	        formData.append(prefix + "y", "0");
+	      } else if (name) {
+	        formData.append(name, value);
+	      }
+	    }
+	  } else if (isHtmlElement(target)) {
+	    throw new Error("Cannot submit element that is not <form>, <button>, or " + "<input type=\"submit|image\">");
+	  } else {
+	    method = defaultMethod;
+	    action = null;
+	    encType = defaultEncType;
+	    body = target;
+	  }
+	  // Send body for <Form encType="text/plain" so we encode it into text
+	  if (formData && encType === "text/plain") {
+	    body = formData;
+	    formData = undefined;
+	  }
+	  return {
+	    action,
+	    method: method.toLowerCase(),
+	    encType,
+	    formData,
+	    body
+	  };
+	}
+	const _excluded = ["onClick", "relative", "reloadDocument", "replace", "state", "target", "to", "preventScrollReset", "unstable_viewTransition"],
+	  _excluded2 = ["aria-current", "caseSensitive", "className", "end", "style", "to", "unstable_viewTransition", "children"],
+	  _excluded3 = ["fetcherKey", "navigate", "reloadDocument", "replace", "state", "method", "action", "onSubmit", "relative", "preventScrollReset", "unstable_viewTransition"];
+	const ViewTransitionContext = /*#__PURE__*/reactExports.createContext({
+	  isTransitioning: false
+	});
+	{
+	  ViewTransitionContext.displayName = "ViewTransition";
+	}
+	const FetchersContext = /*#__PURE__*/reactExports.createContext(new Map());
+	{
+	  FetchersContext.displayName = "Fetchers";
+	}
+	//#endregion
+	////////////////////////////////////////////////////////////////////////////////
+	//#region Components
+	////////////////////////////////////////////////////////////////////////////////
+	/**
+	  Webpack + React 17 fails to compile on any of the following because webpack
+	  complains that `startTransition` doesn't exist in `React`:
+	  * import { startTransition } from "react"
+	  * import * as React from from "react";
+	    "startTransition" in React ? React.startTransition(() => setState()) : setState()
+	  * import * as React from from "react";
+	    "startTransition" in React ? React["startTransition"](() => setState()) : setState()
+
+	  Moving it to a constant such as the following solves the Webpack/React 17 issue:
+	  * import * as React from from "react";
+	    const START_TRANSITION = "startTransition";
+	    START_TRANSITION in React ? React[START_TRANSITION](() => setState()) : setState()
+
+	  However, that introduces webpack/terser minification issues in production builds
+	  in React 18 where minification/obfuscation ends up removing the call of
+	  React.startTransition entirely from the first half of the ternary.  Grabbing
+	  this exported reference once up front resolves that issue.
+
+	  See https://github.com/remix-run/react-router/issues/10579
+	*/
+	const START_TRANSITION = "startTransition";
+	const startTransitionImpl = React$1[START_TRANSITION];
+	const FLUSH_SYNC = "flushSync";
+	ReactDOM$1[FLUSH_SYNC];
+	/**
+	 * A `<Router>` for use in web browsers. Provides the cleanest URLs.
+	 */
+	function BrowserRouter(_ref4) {
+	  let {
+	    basename,
+	    children,
+	    future,
+	    window
+	  } = _ref4;
+	  let historyRef = reactExports.useRef();
+	  if (historyRef.current == null) {
+	    historyRef.current = createBrowserHistory({
+	      window,
+	      v5Compat: true
+	    });
+	  }
+	  let history = historyRef.current;
+	  let [state, setStateImpl] = reactExports.useState({
+	    action: history.action,
+	    location: history.location
+	  });
+	  let {
+	    v7_startTransition
+	  } = future || {};
+	  let setState = reactExports.useCallback(newState => {
+	    v7_startTransition && startTransitionImpl ? startTransitionImpl(() => setStateImpl(newState)) : setStateImpl(newState);
+	  }, [setStateImpl, v7_startTransition]);
+	  reactExports.useLayoutEffect(() => history.listen(setState), [history, setState]);
+	  return /*#__PURE__*/reactExports.createElement(Router, {
+	    basename: basename,
+	    children: children,
+	    location: state.location,
+	    navigationType: state.action,
+	    navigator: history,
+	    future: future
+	  });
+	}
+	const isBrowser$1 = typeof window !== "undefined" && typeof window.document !== "undefined" && typeof window.document.createElement !== "undefined";
+	const ABSOLUTE_URL_REGEX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+	/**
+	 * The public API for rendering a history-aware `<a>`.
+	 */
+	const Link = /*#__PURE__*/reactExports.forwardRef(function LinkWithRef(_ref7, ref) {
+	  let {
+	      onClick,
+	      relative,
+	      reloadDocument,
+	      replace,
+	      state,
+	      target,
+	      to,
+	      preventScrollReset,
+	      unstable_viewTransition
+	    } = _ref7,
+	    rest = _objectWithoutPropertiesLoose$1(_ref7, _excluded);
+	  let {
+	    basename
+	  } = reactExports.useContext(NavigationContext);
+	  // Rendered into <a href> for absolute URLs
+	  let absoluteHref;
+	  let isExternal = false;
+	  if (typeof to === "string" && ABSOLUTE_URL_REGEX.test(to)) {
+	    // Render the absolute href server- and client-side
+	    absoluteHref = to;
+	    // Only check for external origins client-side
+	    if (isBrowser$1) {
+	      try {
+	        let currentUrl = new URL(window.location.href);
+	        let targetUrl = to.startsWith("//") ? new URL(currentUrl.protocol + to) : new URL(to);
+	        let path = stripBasename(targetUrl.pathname, basename);
+	        if (targetUrl.origin === currentUrl.origin && path != null) {
+	          // Strip the protocol/origin/basename for same-origin absolute URLs
+	          to = path + targetUrl.search + targetUrl.hash;
+	        } else {
+	          isExternal = true;
+	        }
+	      } catch (e) {
+	        // We can't do external URL detection without a valid URL
+	        warning(false, "<Link to=\"" + to + "\"> contains an invalid URL which will probably break " + "when clicked - please update to a valid URL path.") ;
+	      }
+	    }
+	  }
+	  // Rendered into <a href> for relative URLs
+	  let href = useHref(to, {
+	    relative
+	  });
+	  let internalOnClick = useLinkClickHandler(to, {
+	    replace,
+	    state,
+	    target,
+	    preventScrollReset,
+	    relative,
+	    unstable_viewTransition
+	  });
+	  function handleClick(event) {
+	    if (onClick) onClick(event);
+	    if (!event.defaultPrevented) {
+	      internalOnClick(event);
+	    }
+	  }
+	  return /*#__PURE__*/(
+	    // eslint-disable-next-line jsx-a11y/anchor-has-content
+	    reactExports.createElement("a", _extends$4({}, rest, {
+	      href: absoluteHref || href,
+	      onClick: isExternal || reloadDocument ? onClick : handleClick,
+	      ref: ref,
+	      target: target
+	    }))
+	  );
+	});
+	{
+	  Link.displayName = "Link";
+	}
+	/**
+	 * A `<Link>` wrapper that knows if it's "active" or not.
+	 */
+	const NavLink = /*#__PURE__*/reactExports.forwardRef(function NavLinkWithRef(_ref8, ref) {
+	  let {
+	      "aria-current": ariaCurrentProp = "page",
+	      caseSensitive = false,
+	      className: classNameProp = "",
+	      end = false,
+	      style: styleProp,
+	      to,
+	      unstable_viewTransition,
+	      children
+	    } = _ref8,
+	    rest = _objectWithoutPropertiesLoose$1(_ref8, _excluded2);
+	  let path = useResolvedPath(to, {
+	    relative: rest.relative
+	  });
+	  let location = useLocation();
+	  let routerState = reactExports.useContext(DataRouterStateContext);
+	  let {
+	    navigator
+	  } = reactExports.useContext(NavigationContext);
+	  let isTransitioning = routerState != null &&
+	  // Conditional usage is OK here because the usage of a data router is static
+	  // eslint-disable-next-line react-hooks/rules-of-hooks
+	  useViewTransitionState(path) && unstable_viewTransition === true;
+	  let toPathname = navigator.encodeLocation ? navigator.encodeLocation(path).pathname : path.pathname;
+	  let locationPathname = location.pathname;
+	  let nextLocationPathname = routerState && routerState.navigation && routerState.navigation.location ? routerState.navigation.location.pathname : null;
+	  if (!caseSensitive) {
+	    locationPathname = locationPathname.toLowerCase();
+	    nextLocationPathname = nextLocationPathname ? nextLocationPathname.toLowerCase() : null;
+	    toPathname = toPathname.toLowerCase();
+	  }
+	  // If the `to` has a trailing slash, look at that exact spot.  Otherwise,
+	  // we're looking for a slash _after_ what's in `to`.  For example:
+	  //
+	  // <NavLink to="/users"> and <NavLink to="/users/">
+	  // both want to look for a / at index 6 to match URL `/users/matt`
+	  const endSlashPosition = toPathname !== "/" && toPathname.endsWith("/") ? toPathname.length - 1 : toPathname.length;
+	  let isActive = locationPathname === toPathname || !end && locationPathname.startsWith(toPathname) && locationPathname.charAt(endSlashPosition) === "/";
+	  let isPending = nextLocationPathname != null && (nextLocationPathname === toPathname || !end && nextLocationPathname.startsWith(toPathname) && nextLocationPathname.charAt(toPathname.length) === "/");
+	  let renderProps = {
+	    isActive,
+	    isPending,
+	    isTransitioning
+	  };
+	  let ariaCurrent = isActive ? ariaCurrentProp : undefined;
+	  let className;
+	  if (typeof classNameProp === "function") {
+	    className = classNameProp(renderProps);
+	  } else {
+	    // If the className prop is not a function, we use a default `active`
+	    // class for <NavLink />s that are active. In v5 `active` was the default
+	    // value for `activeClassName`, but we are removing that API and can still
+	    // use the old default behavior for a cleaner upgrade path and keep the
+	    // simple styling rules working as they currently do.
+	    className = [classNameProp, isActive ? "active" : null, isPending ? "pending" : null, isTransitioning ? "transitioning" : null].filter(Boolean).join(" ");
+	  }
+	  let style = typeof styleProp === "function" ? styleProp(renderProps) : styleProp;
+	  return /*#__PURE__*/reactExports.createElement(Link, _extends$4({}, rest, {
+	    "aria-current": ariaCurrent,
+	    className: className,
+	    ref: ref,
+	    style: style,
+	    to: to,
+	    unstable_viewTransition: unstable_viewTransition
+	  }), typeof children === "function" ? children(renderProps) : children);
+	});
+	{
+	  NavLink.displayName = "NavLink";
+	}
+	/**
+	 * A `@remix-run/router`-aware `<form>`. It behaves like a normal form except
+	 * that the interaction with the server is with `fetch` instead of new document
+	 * requests, allowing components to add nicer UX to the page as the form is
+	 * submitted and returns with data.
+	 */
+	const Form = /*#__PURE__*/reactExports.forwardRef((_ref9, forwardedRef) => {
+	  let {
+	      fetcherKey,
+	      navigate,
+	      reloadDocument,
+	      replace,
+	      state,
+	      method = defaultMethod,
+	      action,
+	      onSubmit,
+	      relative,
+	      preventScrollReset,
+	      unstable_viewTransition
+	    } = _ref9,
+	    props = _objectWithoutPropertiesLoose$1(_ref9, _excluded3);
+	  let submit = useSubmit();
+	  let formAction = useFormAction(action, {
+	    relative
+	  });
+	  let formMethod = method.toLowerCase() === "get" ? "get" : "post";
+	  let submitHandler = event => {
+	    onSubmit && onSubmit(event);
+	    if (event.defaultPrevented) return;
+	    event.preventDefault();
+	    let submitter = event.nativeEvent.submitter;
+	    let submitMethod = (submitter == null ? void 0 : submitter.getAttribute("formmethod")) || method;
+	    submit(submitter || event.currentTarget, {
+	      fetcherKey,
+	      method: submitMethod,
+	      navigate,
+	      replace,
+	      state,
+	      relative,
+	      preventScrollReset,
+	      unstable_viewTransition
+	    });
+	  };
+	  return /*#__PURE__*/reactExports.createElement("form", _extends$4({
+	    ref: forwardedRef,
+	    method: formMethod,
+	    action: formAction,
+	    onSubmit: reloadDocument ? onSubmit : submitHandler
+	  }, props));
+	});
+	{
+	  Form.displayName = "Form";
+	}
+	//#endregion
+	////////////////////////////////////////////////////////////////////////////////
+	//#region Hooks
+	////////////////////////////////////////////////////////////////////////////////
+	var DataRouterHook;
+	(function (DataRouterHook) {
+	  DataRouterHook["UseScrollRestoration"] = "useScrollRestoration";
+	  DataRouterHook["UseSubmit"] = "useSubmit";
+	  DataRouterHook["UseSubmitFetcher"] = "useSubmitFetcher";
+	  DataRouterHook["UseFetcher"] = "useFetcher";
+	  DataRouterHook["useViewTransitionState"] = "useViewTransitionState";
+	})(DataRouterHook || (DataRouterHook = {}));
+	var DataRouterStateHook;
+	(function (DataRouterStateHook) {
+	  DataRouterStateHook["UseFetcher"] = "useFetcher";
+	  DataRouterStateHook["UseFetchers"] = "useFetchers";
+	  DataRouterStateHook["UseScrollRestoration"] = "useScrollRestoration";
+	})(DataRouterStateHook || (DataRouterStateHook = {}));
+	// Internal hooks
+	function getDataRouterConsoleError(hookName) {
+	  return hookName + " must be used within a data router.  See https://reactrouter.com/routers/picking-a-router.";
+	}
+	function useDataRouterContext(hookName) {
+	  let ctx = reactExports.useContext(DataRouterContext);
+	  !ctx ? invariant(false, getDataRouterConsoleError(hookName))  : void 0;
+	  return ctx;
+	}
+	// External hooks
+	/**
+	 * Handles the click behavior for router `<Link>` components. This is useful if
+	 * you need to create custom `<Link>` components with the same click behavior we
+	 * use in our exported `<Link>`.
+	 */
+	function useLinkClickHandler(to, _temp) {
+	  let {
+	    target,
+	    replace: replaceProp,
+	    state,
+	    preventScrollReset,
+	    relative,
+	    unstable_viewTransition
+	  } = _temp === void 0 ? {} : _temp;
+	  let navigate = useNavigate();
+	  let location = useLocation();
+	  let path = useResolvedPath(to, {
+	    relative
+	  });
+	  return reactExports.useCallback(event => {
+	    if (shouldProcessLinkClick(event, target)) {
+	      event.preventDefault();
+	      // If the URL hasn't changed, a regular <a> will do a replace instead of
+	      // a push, so do the same here unless the replace prop is explicitly set
+	      let replace = replaceProp !== undefined ? replaceProp : createPath(location) === createPath(path);
+	      navigate(to, {
+	        replace,
+	        state,
+	        preventScrollReset,
+	        relative,
+	        unstable_viewTransition
+	      });
+	    }
+	  }, [location, navigate, path, replaceProp, state, target, to, preventScrollReset, relative, unstable_viewTransition]);
+	}
+	function validateClientSideSubmission() {
+	  if (typeof document === "undefined") {
+	    throw new Error("You are calling submit during the server render. " + "Try calling submit within a `useEffect` or callback instead.");
+	  }
+	}
+	let fetcherId = 0;
+	let getUniqueFetcherId = () => "__" + String(++fetcherId) + "__";
+	/**
+	 * Returns a function that may be used to programmatically submit a form (or
+	 * some arbitrary data) to the server.
+	 */
+	function useSubmit() {
+	  let {
+	    router
+	  } = useDataRouterContext(DataRouterHook.UseSubmit);
+	  let {
+	    basename
+	  } = reactExports.useContext(NavigationContext);
+	  let currentRouteId = useRouteId();
+	  return reactExports.useCallback(function (target, options) {
+	    if (options === void 0) {
+	      options = {};
+	    }
+	    validateClientSideSubmission();
+	    let {
+	      action,
+	      method,
+	      encType,
+	      formData,
+	      body
+	    } = getFormSubmissionInfo(target, basename);
+	    if (options.navigate === false) {
+	      let key = options.fetcherKey || getUniqueFetcherId();
+	      router.fetch(key, currentRouteId, options.action || action, {
+	        preventScrollReset: options.preventScrollReset,
+	        formData,
+	        body,
+	        formMethod: options.method || method,
+	        formEncType: options.encType || encType,
+	        unstable_flushSync: options.unstable_flushSync
+	      });
+	    } else {
+	      router.navigate(options.action || action, {
+	        preventScrollReset: options.preventScrollReset,
+	        formData,
+	        body,
+	        formMethod: options.method || method,
+	        formEncType: options.encType || encType,
+	        replace: options.replace,
+	        state: options.state,
+	        fromRouteId: currentRouteId,
+	        unstable_flushSync: options.unstable_flushSync,
+	        unstable_viewTransition: options.unstable_viewTransition
+	      });
+	    }
+	  }, [router, basename, currentRouteId]);
+	}
+	// v7: Eventually we should deprecate this entirely in favor of using the
+	// router method directly?
+	function useFormAction(action, _temp2) {
+	  let {
+	    relative
+	  } = _temp2 === void 0 ? {} : _temp2;
+	  let {
+	    basename
+	  } = reactExports.useContext(NavigationContext);
+	  let routeContext = reactExports.useContext(RouteContext);
+	  !routeContext ? invariant(false, "useFormAction must be used inside a RouteContext")  : void 0;
+	  let [match] = routeContext.matches.slice(-1);
+	  // Shallow clone path so we can modify it below, otherwise we modify the
+	  // object referenced by useMemo inside useResolvedPath
+	  let path = _extends$4({}, useResolvedPath(action ? action : ".", {
+	    relative
+	  }));
+	  // If no action was specified, browsers will persist current search params
+	  // when determining the path, so match that behavior
+	  // https://github.com/remix-run/remix/issues/927
+	  let location = useLocation();
+	  if (action == null) {
+	    // Safe to write to this directly here since if action was undefined, we
+	    // would have called useResolvedPath(".") which will never include a search
+	    path.search = location.search;
+	    // When grabbing search params from the URL, remove any included ?index param
+	    // since it might not apply to our contextual route.  We add it back based
+	    // on match.route.index below
+	    let params = new URLSearchParams(path.search);
+	    if (params.has("index") && params.get("index") === "") {
+	      params.delete("index");
+	      path.search = params.toString() ? "?" + params.toString() : "";
+	    }
+	  }
+	  if ((!action || action === ".") && match.route.index) {
+	    path.search = path.search ? path.search.replace(/^\?/, "?index&") : "?index";
+	  }
+	  // If we're operating within a basename, prepend it to the pathname prior
+	  // to creating the form action.  If this is a root navigation, then just use
+	  // the raw basename which allows the basename to have full control over the
+	  // presence of a trailing slash on root actions
+	  if (basename !== "/") {
+	    path.pathname = path.pathname === "/" ? basename : joinPaths([basename, path.pathname]);
+	  }
+	  return createPath(path);
+	}
+	/**
+	 * Return a boolean indicating if there is an active view transition to the
+	 * given href.  You can use this value to render CSS classes or viewTransitionName
+	 * styles onto your elements
+	 *
+	 * @param href The destination href
+	 * @param [opts.relative] Relative routing type ("route" | "path")
+	 */
+	function useViewTransitionState(to, opts) {
+	  if (opts === void 0) {
+	    opts = {};
+	  }
+	  let vtContext = reactExports.useContext(ViewTransitionContext);
+	  !(vtContext != null) ? invariant(false, "`unstable_useViewTransitionState` must be used within `react-router-dom`'s `RouterProvider`.  " + "Did you accidentally import `RouterProvider` from `react-router`?")  : void 0;
+	  let {
+	    basename
+	  } = useDataRouterContext(DataRouterHook.useViewTransitionState);
+	  let path = useResolvedPath(to, {
+	    relative: opts.relative
+	  });
+	  if (!vtContext.isTransitioning) {
+	    return false;
+	  }
+	  let currentPath = stripBasename(vtContext.currentLocation.pathname, basename) || vtContext.currentLocation.pathname;
+	  let nextPath = stripBasename(vtContext.nextLocation.pathname, basename) || vtContext.nextLocation.pathname;
+	  // Transition is active if we're going to or coming from the indicated
+	  // destination.  This ensures that other PUSH navigations that reverse
+	  // an indicated transition apply.  I.e., on the list view you have:
+	  //
+	  //   <NavLink to="/details/1" unstable_viewTransition>
+	  //
+	  // If you click the breadcrumb back to the list view:
+	  //
+	  //   <NavLink to="/list" unstable_viewTransition>
+	  //
+	  // We should apply the transition because it's indicated as active going
+	  // from /list -> /details/1 and therefore should be active on the reverse
+	  // (even though this isn't strictly a POP reverse)
+	  return matchPath(path.pathname, nextPath) != null || matchPath(path.pathname, currentPath) != null;
+	}
+
+	function _iterableToArrayLimit(r, l) {
+	  var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+	  if (null != t) {
+	    var e,
+	      n,
+	      i,
+	      u,
+	      a = [],
+	      f = !0,
+	      o = !1;
+	    try {
+	      if (i = (t = t.call(r)).next, 0 === l) {
+	        if (Object(t) !== t) return;
+	        f = !1;
+	      } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0);
+	    } catch (r) {
+	      o = !0, n = r;
+	    } finally {
+	      try {
+	        if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return;
+	      } finally {
+	        if (o) throw n;
+	      }
+	    }
+	    return a;
+	  }
+	}
+	function ownKeys$5(e, r) {
+	  var t = Object.keys(e);
+	  if (Object.getOwnPropertySymbols) {
+	    var o = Object.getOwnPropertySymbols(e);
+	    r && (o = o.filter(function (r) {
+	      return Object.getOwnPropertyDescriptor(e, r).enumerable;
+	    })), t.push.apply(t, o);
+	  }
+	  return t;
+	}
+	function _objectSpread2(e) {
+	  for (var r = 1; r < arguments.length; r++) {
+	    var t = null != arguments[r] ? arguments[r] : {};
+	    r % 2 ? ownKeys$5(Object(t), !0).forEach(function (r) {
+	      _defineProperty$5(e, r, t[r]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys$5(Object(t)).forEach(function (r) {
+	      Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r));
+	    });
+	  }
+	  return e;
+	}
+	function _regeneratorRuntime() {
+	  _regeneratorRuntime = function () {
+	    return e;
+	  };
+	  var t,
+	    e = {},
+	    r = Object.prototype,
+	    n = r.hasOwnProperty,
+	    o = Object.defineProperty || function (t, e, r) {
+	      t[e] = r.value;
+	    },
+	    i = "function" == typeof Symbol ? Symbol : {},
+	    a = i.iterator || "@@iterator",
+	    c = i.asyncIterator || "@@asyncIterator",
+	    u = i.toStringTag || "@@toStringTag";
+	  function define(t, e, r) {
+	    return Object.defineProperty(t, e, {
+	      value: r,
+	      enumerable: !0,
+	      configurable: !0,
+	      writable: !0
+	    }), t[e];
+	  }
+	  try {
+	    define({}, "");
+	  } catch (t) {
+	    define = function (t, e, r) {
+	      return t[e] = r;
+	    };
+	  }
+	  function wrap(t, e, r, n) {
+	    var i = e && e.prototype instanceof Generator ? e : Generator,
+	      a = Object.create(i.prototype),
+	      c = new Context(n || []);
+	    return o(a, "_invoke", {
+	      value: makeInvokeMethod(t, r, c)
+	    }), a;
+	  }
+	  function tryCatch(t, e, r) {
+	    try {
+	      return {
+	        type: "normal",
+	        arg: t.call(e, r)
+	      };
+	    } catch (t) {
+	      return {
+	        type: "throw",
+	        arg: t
+	      };
+	    }
+	  }
+	  e.wrap = wrap;
+	  var h = "suspendedStart",
+	    l = "suspendedYield",
+	    f = "executing",
+	    s = "completed",
+	    y = {};
+	  function Generator() {}
+	  function GeneratorFunction() {}
+	  function GeneratorFunctionPrototype() {}
+	  var p = {};
+	  define(p, a, function () {
+	    return this;
+	  });
+	  var d = Object.getPrototypeOf,
+	    v = d && d(d(values([])));
+	  v && v !== r && n.call(v, a) && (p = v);
+	  var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p);
+	  function defineIteratorMethods(t) {
+	    ["next", "throw", "return"].forEach(function (e) {
+	      define(t, e, function (t) {
+	        return this._invoke(e, t);
+	      });
+	    });
+	  }
+	  function AsyncIterator(t, e) {
+	    function invoke(r, o, i, a) {
+	      var c = tryCatch(t[r], t, o);
+	      if ("throw" !== c.type) {
+	        var u = c.arg,
+	          h = u.value;
+	        return h && "object" == typeof h && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) {
+	          invoke("next", t, i, a);
+	        }, function (t) {
+	          invoke("throw", t, i, a);
+	        }) : e.resolve(h).then(function (t) {
+	          u.value = t, i(u);
+	        }, function (t) {
+	          return invoke("throw", t, i, a);
+	        });
+	      }
+	      a(c.arg);
+	    }
+	    var r;
+	    o(this, "_invoke", {
+	      value: function (t, n) {
+	        function callInvokeWithMethodAndArg() {
+	          return new e(function (e, r) {
+	            invoke(t, n, e, r);
+	          });
+	        }
+	        return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg();
+	      }
+	    });
+	  }
+	  function makeInvokeMethod(e, r, n) {
+	    var o = h;
+	    return function (i, a) {
+	      if (o === f) throw new Error("Generator is already running");
+	      if (o === s) {
+	        if ("throw" === i) throw a;
+	        return {
+	          value: t,
+	          done: !0
+	        };
+	      }
+	      for (n.method = i, n.arg = a;;) {
+	        var c = n.delegate;
+	        if (c) {
+	          var u = maybeInvokeDelegate(c, n);
+	          if (u) {
+	            if (u === y) continue;
+	            return u;
+	          }
+	        }
+	        if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) {
+	          if (o === h) throw o = s, n.arg;
+	          n.dispatchException(n.arg);
+	        } else "return" === n.method && n.abrupt("return", n.arg);
+	        o = f;
+	        var p = tryCatch(e, r, n);
+	        if ("normal" === p.type) {
+	          if (o = n.done ? s : l, p.arg === y) continue;
+	          return {
+	            value: p.arg,
+	            done: n.done
+	          };
+	        }
+	        "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg);
+	      }
+	    };
+	  }
+	  function maybeInvokeDelegate(e, r) {
+	    var n = r.method,
+	      o = e.iterator[n];
+	    if (o === t) return r.delegate = null, "throw" === n && e.iterator.return && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y;
+	    var i = tryCatch(o, e.iterator, r.arg);
+	    if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y;
+	    var a = i.arg;
+	    return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y);
+	  }
+	  function pushTryEntry(t) {
+	    var e = {
+	      tryLoc: t[0]
+	    };
+	    1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e);
+	  }
+	  function resetTryEntry(t) {
+	    var e = t.completion || {};
+	    e.type = "normal", delete e.arg, t.completion = e;
+	  }
+	  function Context(t) {
+	    this.tryEntries = [{
+	      tryLoc: "root"
+	    }], t.forEach(pushTryEntry, this), this.reset(!0);
+	  }
+	  function values(e) {
+	    if (e || "" === e) {
+	      var r = e[a];
+	      if (r) return r.call(e);
+	      if ("function" == typeof e.next) return e;
+	      if (!isNaN(e.length)) {
+	        var o = -1,
+	          i = function next() {
+	            for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next;
+	            return next.value = t, next.done = !0, next;
+	          };
+	        return i.next = i;
+	      }
+	    }
+	    throw new TypeError(typeof e + " is not iterable");
+	  }
+	  return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", {
+	    value: GeneratorFunctionPrototype,
+	    configurable: !0
+	  }), o(GeneratorFunctionPrototype, "constructor", {
+	    value: GeneratorFunction,
+	    configurable: !0
+	  }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) {
+	    var e = "function" == typeof t && t.constructor;
+	    return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name));
+	  }, e.mark = function (t) {
+	    return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t;
+	  }, e.awrap = function (t) {
+	    return {
+	      __await: t
+	    };
+	  }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () {
+	    return this;
+	  }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) {
+	    void 0 === i && (i = Promise);
+	    var a = new AsyncIterator(wrap(t, r, n, o), i);
+	    return e.isGeneratorFunction(r) ? a : a.next().then(function (t) {
+	      return t.done ? t.value : a.next();
+	    });
+	  }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () {
+	    return this;
+	  }), define(g, "toString", function () {
+	    return "[object Generator]";
+	  }), e.keys = function (t) {
+	    var e = Object(t),
+	      r = [];
+	    for (var n in e) r.push(n);
+	    return r.reverse(), function next() {
+	      for (; r.length;) {
+	        var t = r.pop();
+	        if (t in e) return next.value = t, next.done = !1, next;
+	      }
+	      return next.done = !0, next;
+	    };
+	  }, e.values = values, Context.prototype = {
+	    constructor: Context,
+	    reset: function (e) {
+	      if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t);
+	    },
+	    stop: function () {
+	      this.done = !0;
+	      var t = this.tryEntries[0].completion;
+	      if ("throw" === t.type) throw t.arg;
+	      return this.rval;
+	    },
+	    dispatchException: function (e) {
+	      if (this.done) throw e;
+	      var r = this;
+	      function handle(n, o) {
+	        return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o;
+	      }
+	      for (var o = this.tryEntries.length - 1; o >= 0; --o) {
+	        var i = this.tryEntries[o],
+	          a = i.completion;
+	        if ("root" === i.tryLoc) return handle("end");
+	        if (i.tryLoc <= this.prev) {
+	          var c = n.call(i, "catchLoc"),
+	            u = n.call(i, "finallyLoc");
+	          if (c && u) {
+	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
+	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
+	          } else if (c) {
+	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
+	          } else {
+	            if (!u) throw new Error("try statement without catch or finally");
+	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
+	          }
+	        }
+	      }
+	    },
+	    abrupt: function (t, e) {
+	      for (var r = this.tryEntries.length - 1; r >= 0; --r) {
+	        var o = this.tryEntries[r];
+	        if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) {
+	          var i = o;
+	          break;
+	        }
+	      }
+	      i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null);
+	      var a = i ? i.completion : {};
+	      return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a);
+	    },
+	    complete: function (t, e) {
+	      if ("throw" === t.type) throw t.arg;
+	      return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y;
+	    },
+	    finish: function (t) {
+	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
+	        var r = this.tryEntries[e];
+	        if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y;
+	      }
+	    },
+	    catch: function (t) {
+	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
+	        var r = this.tryEntries[e];
+	        if (r.tryLoc === t) {
+	          var n = r.completion;
+	          if ("throw" === n.type) {
+	            var o = n.arg;
+	            resetTryEntry(r);
+	          }
+	          return o;
+	        }
+	      }
+	      throw new Error("illegal catch attempt");
+	    },
+	    delegateYield: function (e, r, n) {
+	      return this.delegate = {
+	        iterator: values(e),
+	        resultName: r,
+	        nextLoc: n
+	      }, "next" === this.method && (this.arg = t), y;
+	    }
+	  }, e;
+	}
+	function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
+	  try {
+	    var info = gen[key](arg);
+	    var value = info.value;
+	  } catch (error) {
+	    reject(error);
+	    return;
+	  }
+	  if (info.done) {
+	    resolve(value);
+	  } else {
+	    Promise.resolve(value).then(_next, _throw);
+	  }
+	}
+	function _asyncToGenerator(fn) {
+	  return function () {
+	    var self = this,
+	      args = arguments;
+	    return new Promise(function (resolve, reject) {
+	      var gen = fn.apply(self, args);
+	      function _next(value) {
+	        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
+	      }
+	      function _throw(err) {
+	        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
+	      }
+	      _next(undefined);
+	    });
+	  };
+	}
+	function _defineProperty$5(obj, key, value) {
+	  key = _toPropertyKey(key);
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+	function _extends$3() {
+	  _extends$3 = Object.assign ? Object.assign.bind() : function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$3.apply(this, arguments);
+	}
+	function _slicedToArray(arr, i) {
+	  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
+	}
+	function _arrayWithHoles(arr) {
+	  if (Array.isArray(arr)) return arr;
+	}
+	function _unsupportedIterableToArray(o, minLen) {
+	  if (!o) return;
+	  if (typeof o === "string") return _arrayLikeToArray(o, minLen);
+	  var n = Object.prototype.toString.call(o).slice(8, -1);
+	  if (n === "Object" && o.constructor) n = o.constructor.name;
+	  if (n === "Map" || n === "Set") return Array.from(o);
+	  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+	}
+	function _arrayLikeToArray(arr, len) {
+	  if (len == null || len > arr.length) len = arr.length;
+	  for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+	  return arr2;
+	}
+	function _nonIterableRest() {
+	  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+	}
+	function _createForOfIteratorHelper(o, allowArrayLike) {
+	  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+	  if (!it) {
+	    if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") {
+	      if (it) o = it;
+	      var i = 0;
+	      var F = function () {};
+	      return {
+	        s: F,
+	        n: function () {
+	          if (i >= o.length) return {
+	            done: true
+	          };
+	          return {
+	            done: false,
+	            value: o[i++]
+	          };
+	        },
+	        e: function (e) {
+	          throw e;
+	        },
+	        f: F
+	      };
+	    }
+	    throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+	  }
+	  var normalCompletion = true,
+	    didErr = false,
+	    err;
+	  return {
+	    s: function () {
+	      it = it.call(o);
+	    },
+	    n: function () {
+	      var step = it.next();
+	      normalCompletion = step.done;
+	      return step;
+	    },
+	    e: function (e) {
+	      didErr = true;
+	      err = e;
+	    },
+	    f: function () {
+	      try {
+	        if (!normalCompletion && it.return != null) it.return();
+	      } finally {
+	        if (didErr) throw err;
+	      }
+	    }
+	  };
+	}
+	function _toPrimitive(input, hint) {
+	  if (typeof input !== "object" || input === null) return input;
+	  var prim = input[Symbol.toPrimitive];
+	  if (prim !== undefined) {
+	    var res = prim.call(input, hint || "default");
+	    if (typeof res !== "object") return res;
+	    throw new TypeError("@@toPrimitive must return a primitive value.");
+	  }
+	  return (hint === "string" ? String : Number)(input);
+	}
+	function _toPropertyKey(arg) {
+	  var key = _toPrimitive(arg, "string");
+	  return typeof key === "symbol" ? key : String(key);
+	}
+
+	var jsxRuntime = {exports: {}};
+
+	var reactJsxRuntime_development = {};
+
+	/**
+	 * @license React
+	 * react-jsx-runtime.development.js
+	 *
+	 * Copyright (c) Facebook, Inc. and its affiliates.
+	 *
+	 * This source code is licensed under the MIT license found in the
+	 * LICENSE file in the root directory of this source tree.
+	 */
+
+	{
+	  (function () {
+
+	    var React = reactExports;
+
+	    // ATTENTION
+	    // When adding new symbols to this file,
+	    // Please consider also adding to 'react-devtools-shared/src/backend/ReactSymbols'
+	    // The Symbol used to tag the ReactElement-like types.
+	    var REACT_ELEMENT_TYPE = Symbol.for('react.element');
+	    var REACT_PORTAL_TYPE = Symbol.for('react.portal');
+	    var REACT_FRAGMENT_TYPE = Symbol.for('react.fragment');
+	    var REACT_STRICT_MODE_TYPE = Symbol.for('react.strict_mode');
+	    var REACT_PROFILER_TYPE = Symbol.for('react.profiler');
+	    var REACT_PROVIDER_TYPE = Symbol.for('react.provider');
+	    var REACT_CONTEXT_TYPE = Symbol.for('react.context');
+	    var REACT_FORWARD_REF_TYPE = Symbol.for('react.forward_ref');
+	    var REACT_SUSPENSE_TYPE = Symbol.for('react.suspense');
+	    var REACT_SUSPENSE_LIST_TYPE = Symbol.for('react.suspense_list');
+	    var REACT_MEMO_TYPE = Symbol.for('react.memo');
+	    var REACT_LAZY_TYPE = Symbol.for('react.lazy');
+	    var REACT_OFFSCREEN_TYPE = Symbol.for('react.offscreen');
+	    var MAYBE_ITERATOR_SYMBOL = Symbol.iterator;
+	    var FAUX_ITERATOR_SYMBOL = '@@iterator';
+	    function getIteratorFn(maybeIterable) {
+	      if (maybeIterable === null || typeof maybeIterable !== 'object') {
+	        return null;
+	      }
+	      var maybeIterator = MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL] || maybeIterable[FAUX_ITERATOR_SYMBOL];
+	      if (typeof maybeIterator === 'function') {
+	        return maybeIterator;
+	      }
+	      return null;
+	    }
+	    var ReactSharedInternals = React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+	    function error(format) {
+	      {
+	        {
+	          for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+	            args[_key2 - 1] = arguments[_key2];
+	          }
+	          printWarning('error', format, args);
+	        }
+	      }
+	    }
+	    function printWarning(level, format, args) {
+	      // When changing this logic, you might want to also
+	      // update consoleWithStackDev.www.js as well.
+	      {
+	        var ReactDebugCurrentFrame = ReactSharedInternals.ReactDebugCurrentFrame;
+	        var stack = ReactDebugCurrentFrame.getStackAddendum();
+	        if (stack !== '') {
+	          format += '%s';
+	          args = args.concat([stack]);
+	        } // eslint-disable-next-line react-internal/safe-string-coercion
+
+	        var argsWithFormat = args.map(function (item) {
+	          return String(item);
+	        }); // Careful: RN currently depends on this prefix
+
+	        argsWithFormat.unshift('Warning: ' + format); // We intentionally don't use spread (or .apply) directly because it
+	        // breaks IE9: https://github.com/facebook/react/issues/13610
+	        // eslint-disable-next-line react-internal/no-production-logging
+
+	        Function.prototype.apply.call(console[level], console, argsWithFormat);
+	      }
+	    }
+
+	    // -----------------------------------------------------------------------------
+
+	    var enableScopeAPI = false; // Experimental Create Event Handle API.
+	    var enableCacheElement = false;
+	    var enableTransitionTracing = false; // No known bugs, but needs performance testing
+
+	    var enableLegacyHidden = false; // Enables unstable_avoidThisFallback feature in Fiber
+	    // stuff. Intended to enable React core members to more easily debug scheduling
+	    // issues in DEV builds.
+
+	    var enableDebugTracing = false; // Track which Fiber(s) schedule render work.
+
+	    var REACT_MODULE_REFERENCE;
+	    {
+	      REACT_MODULE_REFERENCE = Symbol.for('react.module.reference');
+	    }
+	    function isValidElementType(type) {
+	      if (typeof type === 'string' || typeof type === 'function') {
+	        return true;
+	      } // Note: typeof might be other than 'symbol' or 'number' (e.g. if it's a polyfill).
+
+	      if (type === REACT_FRAGMENT_TYPE || type === REACT_PROFILER_TYPE || enableDebugTracing || type === REACT_STRICT_MODE_TYPE || type === REACT_SUSPENSE_TYPE || type === REACT_SUSPENSE_LIST_TYPE || enableLegacyHidden || type === REACT_OFFSCREEN_TYPE || enableScopeAPI || enableCacheElement || enableTransitionTracing) {
+	        return true;
+	      }
+	      if (typeof type === 'object' && type !== null) {
+	        if (type.$$typeof === REACT_LAZY_TYPE || type.$$typeof === REACT_MEMO_TYPE || type.$$typeof === REACT_PROVIDER_TYPE || type.$$typeof === REACT_CONTEXT_TYPE || type.$$typeof === REACT_FORWARD_REF_TYPE ||
+	        // This needs to include all possible module reference object
+	        // types supported by any Flight configuration anywhere since
+	        // we don't know which Flight build this will end up being used
+	        // with.
+	        type.$$typeof === REACT_MODULE_REFERENCE || type.getModuleId !== undefined) {
+	          return true;
+	        }
+	      }
+	      return false;
+	    }
+	    function getWrappedName(outerType, innerType, wrapperName) {
+	      var displayName = outerType.displayName;
+	      if (displayName) {
+	        return displayName;
+	      }
+	      var functionName = innerType.displayName || innerType.name || '';
+	      return functionName !== '' ? wrapperName + "(" + functionName + ")" : wrapperName;
+	    } // Keep in sync with react-reconciler/getComponentNameFromFiber
+
+	    function getContextName(type) {
+	      return type.displayName || 'Context';
+	    } // Note that the reconciler package should generally prefer to use getComponentNameFromFiber() instead.
+
+	    function getComponentNameFromType(type) {
+	      if (type == null) {
+	        // Host root, text node or just invalid type.
+	        return null;
+	      }
+	      {
+	        if (typeof type.tag === 'number') {
+	          error('Received an unexpected object in getComponentNameFromType(). ' + 'This is likely a bug in React. Please file an issue.');
+	        }
+	      }
+	      if (typeof type === 'function') {
+	        return type.displayName || type.name || null;
+	      }
+	      if (typeof type === 'string') {
+	        return type;
+	      }
+	      switch (type) {
+	        case REACT_FRAGMENT_TYPE:
+	          return 'Fragment';
+	        case REACT_PORTAL_TYPE:
+	          return 'Portal';
+	        case REACT_PROFILER_TYPE:
+	          return 'Profiler';
+	        case REACT_STRICT_MODE_TYPE:
+	          return 'StrictMode';
+	        case REACT_SUSPENSE_TYPE:
+	          return 'Suspense';
+	        case REACT_SUSPENSE_LIST_TYPE:
+	          return 'SuspenseList';
+	      }
+	      if (typeof type === 'object') {
+	        switch (type.$$typeof) {
+	          case REACT_CONTEXT_TYPE:
+	            var context = type;
+	            return getContextName(context) + '.Consumer';
+	          case REACT_PROVIDER_TYPE:
+	            var provider = type;
+	            return getContextName(provider._context) + '.Provider';
+	          case REACT_FORWARD_REF_TYPE:
+	            return getWrappedName(type, type.render, 'ForwardRef');
+	          case REACT_MEMO_TYPE:
+	            var outerName = type.displayName || null;
+	            if (outerName !== null) {
+	              return outerName;
+	            }
+	            return getComponentNameFromType(type.type) || 'Memo';
+	          case REACT_LAZY_TYPE:
+	            {
+	              var lazyComponent = type;
+	              var payload = lazyComponent._payload;
+	              var init = lazyComponent._init;
+	              try {
+	                return getComponentNameFromType(init(payload));
+	              } catch (x) {
+	                return null;
+	              }
+	            }
+
+	          // eslint-disable-next-line no-fallthrough
+	        }
+	      }
+
+	      return null;
+	    }
+	    var assign = Object.assign;
+
+	    // Helpers to patch console.logs to avoid logging during side-effect free
+	    // replaying on render function. This currently only patches the object
+	    // lazily which won't cover if the log function was extracted eagerly.
+	    // We could also eagerly patch the method.
+	    var disabledDepth = 0;
+	    var prevLog;
+	    var prevInfo;
+	    var prevWarn;
+	    var prevError;
+	    var prevGroup;
+	    var prevGroupCollapsed;
+	    var prevGroupEnd;
+	    function disabledLog() {}
+	    disabledLog.__reactDisabledLog = true;
+	    function disableLogs() {
+	      {
+	        if (disabledDepth === 0) {
+	          /* eslint-disable react-internal/no-production-logging */
+	          prevLog = console.log;
+	          prevInfo = console.info;
+	          prevWarn = console.warn;
+	          prevError = console.error;
+	          prevGroup = console.group;
+	          prevGroupCollapsed = console.groupCollapsed;
+	          prevGroupEnd = console.groupEnd; // https://github.com/facebook/react/issues/19099
+
+	          var props = {
+	            configurable: true,
+	            enumerable: true,
+	            value: disabledLog,
+	            writable: true
+	          }; // $FlowFixMe Flow thinks console is immutable.
+
+	          Object.defineProperties(console, {
+	            info: props,
+	            log: props,
+	            warn: props,
+	            error: props,
+	            group: props,
+	            groupCollapsed: props,
+	            groupEnd: props
+	          });
+	          /* eslint-enable react-internal/no-production-logging */
+	        }
+
+	        disabledDepth++;
+	      }
+	    }
+	    function reenableLogs() {
+	      {
+	        disabledDepth--;
+	        if (disabledDepth === 0) {
+	          /* eslint-disable react-internal/no-production-logging */
+	          var props = {
+	            configurable: true,
+	            enumerable: true,
+	            writable: true
+	          }; // $FlowFixMe Flow thinks console is immutable.
+
+	          Object.defineProperties(console, {
+	            log: assign({}, props, {
+	              value: prevLog
+	            }),
+	            info: assign({}, props, {
+	              value: prevInfo
+	            }),
+	            warn: assign({}, props, {
+	              value: prevWarn
+	            }),
+	            error: assign({}, props, {
+	              value: prevError
+	            }),
+	            group: assign({}, props, {
+	              value: prevGroup
+	            }),
+	            groupCollapsed: assign({}, props, {
+	              value: prevGroupCollapsed
+	            }),
+	            groupEnd: assign({}, props, {
+	              value: prevGroupEnd
+	            })
+	          });
+	          /* eslint-enable react-internal/no-production-logging */
+	        }
+
+	        if (disabledDepth < 0) {
+	          error('disabledDepth fell below zero. ' + 'This is a bug in React. Please file an issue.');
+	        }
+	      }
+	    }
+	    var ReactCurrentDispatcher = ReactSharedInternals.ReactCurrentDispatcher;
+	    var prefix;
+	    function describeBuiltInComponentFrame(name, source, ownerFn) {
+	      {
+	        if (prefix === undefined) {
+	          // Extract the VM specific prefix used by each line.
+	          try {
+	            throw Error();
+	          } catch (x) {
+	            var match = x.stack.trim().match(/\n( *(at )?)/);
+	            prefix = match && match[1] || '';
+	          }
+	        } // We use the prefix to ensure our stacks line up with native stack frames.
+
+	        return '\n' + prefix + name;
+	      }
+	    }
+	    var reentry = false;
+	    var componentFrameCache;
+	    {
+	      var PossiblyWeakMap = typeof WeakMap === 'function' ? WeakMap : Map;
+	      componentFrameCache = new PossiblyWeakMap();
+	    }
+	    function describeNativeComponentFrame(fn, construct) {
+	      // If something asked for a stack inside a fake render, it should get ignored.
+	      if (!fn || reentry) {
+	        return '';
+	      }
+	      {
+	        var frame = componentFrameCache.get(fn);
+	        if (frame !== undefined) {
+	          return frame;
+	        }
+	      }
+	      var control;
+	      reentry = true;
+	      var previousPrepareStackTrace = Error.prepareStackTrace; // $FlowFixMe It does accept undefined.
+
+	      Error.prepareStackTrace = undefined;
+	      var previousDispatcher;
+	      {
+	        previousDispatcher = ReactCurrentDispatcher.current; // Set the dispatcher in DEV because this might be call in the render function
+	        // for warnings.
+
+	        ReactCurrentDispatcher.current = null;
+	        disableLogs();
+	      }
+	      try {
+	        // This should throw.
+	        if (construct) {
+	          // Something should be setting the props in the constructor.
+	          var Fake = function () {
+	            throw Error();
+	          }; // $FlowFixMe
+
+	          Object.defineProperty(Fake.prototype, 'props', {
+	            set: function () {
+	              // We use a throwing setter instead of frozen or non-writable props
+	              // because that won't throw in a non-strict mode function.
+	              throw Error();
+	            }
+	          });
+	          if (typeof Reflect === 'object' && Reflect.construct) {
+	            // We construct a different control for this case to include any extra
+	            // frames added by the construct call.
+	            try {
+	              Reflect.construct(Fake, []);
+	            } catch (x) {
+	              control = x;
+	            }
+	            Reflect.construct(fn, [], Fake);
+	          } else {
+	            try {
+	              Fake.call();
+	            } catch (x) {
+	              control = x;
+	            }
+	            fn.call(Fake.prototype);
+	          }
+	        } else {
+	          try {
+	            throw Error();
+	          } catch (x) {
+	            control = x;
+	          }
+	          fn();
+	        }
+	      } catch (sample) {
+	        // This is inlined manually because closure doesn't do it for us.
+	        if (sample && control && typeof sample.stack === 'string') {
+	          // This extracts the first frame from the sample that isn't also in the control.
+	          // Skipping one frame that we assume is the frame that calls the two.
+	          var sampleLines = sample.stack.split('\n');
+	          var controlLines = control.stack.split('\n');
+	          var s = sampleLines.length - 1;
+	          var c = controlLines.length - 1;
+	          while (s >= 1 && c >= 0 && sampleLines[s] !== controlLines[c]) {
+	            // We expect at least one stack frame to be shared.
+	            // Typically this will be the root most one. However, stack frames may be
+	            // cut off due to maximum stack limits. In this case, one maybe cut off
+	            // earlier than the other. We assume that the sample is longer or the same
+	            // and there for cut off earlier. So we should find the root most frame in
+	            // the sample somewhere in the control.
+	            c--;
+	          }
+	          for (; s >= 1 && c >= 0; s--, c--) {
+	            // Next we find the first one that isn't the same which should be the
+	            // frame that called our sample function and the control.
+	            if (sampleLines[s] !== controlLines[c]) {
+	              // In V8, the first line is describing the message but other VMs don't.
+	              // If we're about to return the first line, and the control is also on the same
+	              // line, that's a pretty good indicator that our sample threw at same line as
+	              // the control. I.e. before we entered the sample frame. So we ignore this result.
+	              // This can happen if you passed a class to function component, or non-function.
+	              if (s !== 1 || c !== 1) {
+	                do {
+	                  s--;
+	                  c--; // We may still have similar intermediate frames from the construct call.
+	                  // The next one that isn't the same should be our match though.
+
+	                  if (c < 0 || sampleLines[s] !== controlLines[c]) {
+	                    // V8 adds a "new" prefix for native classes. Let's remove it to make it prettier.
+	                    var _frame = '\n' + sampleLines[s].replace(' at new ', ' at '); // If our component frame is labeled "<anonymous>"
+	                    // but we have a user-provided "displayName"
+	                    // splice it in to make the stack more readable.
+
+	                    if (fn.displayName && _frame.includes('<anonymous>')) {
+	                      _frame = _frame.replace('<anonymous>', fn.displayName);
+	                    }
+	                    {
+	                      if (typeof fn === 'function') {
+	                        componentFrameCache.set(fn, _frame);
+	                      }
+	                    } // Return the line we found.
+
+	                    return _frame;
+	                  }
+	                } while (s >= 1 && c >= 0);
+	              }
+	              break;
+	            }
+	          }
+	        }
+	      } finally {
+	        reentry = false;
+	        {
+	          ReactCurrentDispatcher.current = previousDispatcher;
+	          reenableLogs();
+	        }
+	        Error.prepareStackTrace = previousPrepareStackTrace;
+	      } // Fallback to just using the name if we couldn't make it throw.
+
+	      var name = fn ? fn.displayName || fn.name : '';
+	      var syntheticFrame = name ? describeBuiltInComponentFrame(name) : '';
+	      {
+	        if (typeof fn === 'function') {
+	          componentFrameCache.set(fn, syntheticFrame);
+	        }
+	      }
+	      return syntheticFrame;
+	    }
+	    function describeFunctionComponentFrame(fn, source, ownerFn) {
+	      {
+	        return describeNativeComponentFrame(fn, false);
+	      }
+	    }
+	    function shouldConstruct(Component) {
+	      var prototype = Component.prototype;
+	      return !!(prototype && prototype.isReactComponent);
+	    }
+	    function describeUnknownElementTypeFrameInDEV(type, source, ownerFn) {
+	      if (type == null) {
+	        return '';
+	      }
+	      if (typeof type === 'function') {
+	        {
+	          return describeNativeComponentFrame(type, shouldConstruct(type));
+	        }
+	      }
+	      if (typeof type === 'string') {
+	        return describeBuiltInComponentFrame(type);
+	      }
+	      switch (type) {
+	        case REACT_SUSPENSE_TYPE:
+	          return describeBuiltInComponentFrame('Suspense');
+	        case REACT_SUSPENSE_LIST_TYPE:
+	          return describeBuiltInComponentFrame('SuspenseList');
+	      }
+	      if (typeof type === 'object') {
+	        switch (type.$$typeof) {
+	          case REACT_FORWARD_REF_TYPE:
+	            return describeFunctionComponentFrame(type.render);
+	          case REACT_MEMO_TYPE:
+	            // Memo may contain any component type so we recursively resolve it.
+	            return describeUnknownElementTypeFrameInDEV(type.type, source, ownerFn);
+	          case REACT_LAZY_TYPE:
+	            {
+	              var lazyComponent = type;
+	              var payload = lazyComponent._payload;
+	              var init = lazyComponent._init;
+	              try {
+	                // Lazy may contain any component type so we recursively resolve it.
+	                return describeUnknownElementTypeFrameInDEV(init(payload), source, ownerFn);
+	              } catch (x) {}
+	            }
+	        }
+	      }
+	      return '';
+	    }
+	    var hasOwnProperty = Object.prototype.hasOwnProperty;
+	    var loggedTypeFailures = {};
+	    var ReactDebugCurrentFrame = ReactSharedInternals.ReactDebugCurrentFrame;
+	    function setCurrentlyValidatingElement(element) {
+	      {
+	        if (element) {
+	          var owner = element._owner;
+	          var stack = describeUnknownElementTypeFrameInDEV(element.type, element._source, owner ? owner.type : null);
+	          ReactDebugCurrentFrame.setExtraStackFrame(stack);
+	        } else {
+	          ReactDebugCurrentFrame.setExtraStackFrame(null);
+	        }
+	      }
+	    }
+	    function checkPropTypes(typeSpecs, values, location, componentName, element) {
+	      {
+	        // $FlowFixMe This is okay but Flow doesn't know it.
+	        var has = Function.call.bind(hasOwnProperty);
+	        for (var typeSpecName in typeSpecs) {
+	          if (has(typeSpecs, typeSpecName)) {
+	            var error$1 = void 0; // Prop type validation may throw. In case they do, we don't want to
+	            // fail the render phase where it didn't fail before. So we log it.
+	            // After these have been cleaned up, we'll let them throw.
+
+	            try {
+	              // This is intentionally an invariant that gets caught. It's the same
+	              // behavior as without this statement except with a better message.
+	              if (typeof typeSpecs[typeSpecName] !== 'function') {
+	                // eslint-disable-next-line react-internal/prod-error-codes
+	                var err = Error((componentName || 'React class') + ': ' + location + ' type `' + typeSpecName + '` is invalid; ' + 'it must be a function, usually from the `prop-types` package, but received `' + typeof typeSpecs[typeSpecName] + '`.' + 'This often happens because of typos such as `PropTypes.function` instead of `PropTypes.func`.');
+	                err.name = 'Invariant Violation';
+	                throw err;
+	              }
+	              error$1 = typeSpecs[typeSpecName](values, typeSpecName, componentName, location, null, 'SECRET_DO_NOT_PASS_THIS_OR_YOU_WILL_BE_FIRED');
+	            } catch (ex) {
+	              error$1 = ex;
+	            }
+	            if (error$1 && !(error$1 instanceof Error)) {
+	              setCurrentlyValidatingElement(element);
+	              error('%s: type specification of %s' + ' `%s` is invalid; the type checker ' + 'function must return `null` or an `Error` but returned a %s. ' + 'You may have forgotten to pass an argument to the type checker ' + 'creator (arrayOf, instanceOf, objectOf, oneOf, oneOfType, and ' + 'shape all require an argument).', componentName || 'React class', location, typeSpecName, typeof error$1);
+	              setCurrentlyValidatingElement(null);
+	            }
+	            if (error$1 instanceof Error && !(error$1.message in loggedTypeFailures)) {
+	              // Only monitor this failure once because there tends to be a lot of the
+	              // same error.
+	              loggedTypeFailures[error$1.message] = true;
+	              setCurrentlyValidatingElement(element);
+	              error('Failed %s type: %s', location, error$1.message);
+	              setCurrentlyValidatingElement(null);
+	            }
+	          }
+	        }
+	      }
+	    }
+	    var isArrayImpl = Array.isArray; // eslint-disable-next-line no-redeclare
+
+	    function isArray(a) {
+	      return isArrayImpl(a);
+	    }
+
+	    /*
+	     * The `'' + value` pattern (used in in perf-sensitive code) throws for Symbol
+	     * and Temporal.* types. See https://github.com/facebook/react/pull/22064.
+	     *
+	     * The functions in this module will throw an easier-to-understand,
+	     * easier-to-debug exception with a clear errors message message explaining the
+	     * problem. (Instead of a confusing exception thrown inside the implementation
+	     * of the `value` object).
+	     */
+	    // $FlowFixMe only called in DEV, so void return is not possible.
+	    function typeName(value) {
+	      {
+	        // toStringTag is needed for namespaced types like Temporal.Instant
+	        var hasToStringTag = typeof Symbol === 'function' && Symbol.toStringTag;
+	        var type = hasToStringTag && value[Symbol.toStringTag] || value.constructor.name || 'Object';
+	        return type;
+	      }
+	    } // $FlowFixMe only called in DEV, so void return is not possible.
+
+	    function willCoercionThrow(value) {
+	      {
+	        try {
+	          testStringCoercion(value);
+	          return false;
+	        } catch (e) {
+	          return true;
+	        }
+	      }
+	    }
+	    function testStringCoercion(value) {
+	      // If you ended up here by following an exception call stack, here's what's
+	      // happened: you supplied an object or symbol value to React (as a prop, key,
+	      // DOM attribute, CSS property, string ref, etc.) and when React tried to
+	      // coerce it to a string using `'' + value`, an exception was thrown.
+	      //
+	      // The most common types that will cause this exception are `Symbol` instances
+	      // and Temporal objects like `Temporal.Instant`. But any object that has a
+	      // `valueOf` or `[Symbol.toPrimitive]` method that throws will also cause this
+	      // exception. (Library authors do this to prevent users from using built-in
+	      // numeric operators like `+` or comparison operators like `>=` because custom
+	      // methods are needed to perform accurate arithmetic or comparison.)
+	      //
+	      // To fix the problem, coerce this object or symbol value to a string before
+	      // passing it to React. The most reliable way is usually `String(value)`.
+	      //
+	      // To find which value is throwing, check the browser or debugger console.
+	      // Before this exception was thrown, there should be `console.error` output
+	      // that shows the type (Symbol, Temporal.PlainDate, etc.) that caused the
+	      // problem and how that type was used: key, atrribute, input value prop, etc.
+	      // In most cases, this console output also shows the component and its
+	      // ancestor components where the exception happened.
+	      //
+	      // eslint-disable-next-line react-internal/safe-string-coercion
+	      return '' + value;
+	    }
+	    function checkKeyStringCoercion(value) {
+	      {
+	        if (willCoercionThrow(value)) {
+	          error('The provided key is an unsupported type %s.' + ' This value must be coerced to a string before before using it here.', typeName(value));
+	          return testStringCoercion(value); // throw (to help callers find troubleshooting comments)
+	        }
+	      }
+	    }
+
+	    var ReactCurrentOwner = ReactSharedInternals.ReactCurrentOwner;
+	    var RESERVED_PROPS = {
+	      key: true,
+	      ref: true,
+	      __self: true,
+	      __source: true
+	    };
+	    var specialPropKeyWarningShown;
+	    var specialPropRefWarningShown;
+	    var didWarnAboutStringRefs;
+	    {
+	      didWarnAboutStringRefs = {};
+	    }
+	    function hasValidRef(config) {
+	      {
+	        if (hasOwnProperty.call(config, 'ref')) {
+	          var getter = Object.getOwnPropertyDescriptor(config, 'ref').get;
+	          if (getter && getter.isReactWarning) {
+	            return false;
+	          }
+	        }
+	      }
+	      return config.ref !== undefined;
+	    }
+	    function hasValidKey(config) {
+	      {
+	        if (hasOwnProperty.call(config, 'key')) {
+	          var getter = Object.getOwnPropertyDescriptor(config, 'key').get;
+	          if (getter && getter.isReactWarning) {
+	            return false;
+	          }
+	        }
+	      }
+	      return config.key !== undefined;
+	    }
+	    function warnIfStringRefCannotBeAutoConverted(config, self) {
+	      {
+	        if (typeof config.ref === 'string' && ReactCurrentOwner.current && self && ReactCurrentOwner.current.stateNode !== self) {
+	          var componentName = getComponentNameFromType(ReactCurrentOwner.current.type);
+	          if (!didWarnAboutStringRefs[componentName]) {
+	            error('Component "%s" contains the string ref "%s". ' + 'Support for string refs will be removed in a future major release. ' + 'This case cannot be automatically converted to an arrow function. ' + 'We ask you to manually fix this case by using useRef() or createRef() instead. ' + 'Learn more about using refs safely here: ' + 'https://reactjs.org/link/strict-mode-string-ref', getComponentNameFromType(ReactCurrentOwner.current.type), config.ref);
+	            didWarnAboutStringRefs[componentName] = true;
+	          }
+	        }
+	      }
+	    }
+	    function defineKeyPropWarningGetter(props, displayName) {
+	      {
+	        var warnAboutAccessingKey = function () {
+	          if (!specialPropKeyWarningShown) {
+	            specialPropKeyWarningShown = true;
+	            error('%s: `key` is not a prop. Trying to access it will result ' + 'in `undefined` being returned. If you need to access the same ' + 'value within the child component, you should pass it as a different ' + 'prop. (https://reactjs.org/link/special-props)', displayName);
+	          }
+	        };
+	        warnAboutAccessingKey.isReactWarning = true;
+	        Object.defineProperty(props, 'key', {
+	          get: warnAboutAccessingKey,
+	          configurable: true
+	        });
+	      }
+	    }
+	    function defineRefPropWarningGetter(props, displayName) {
+	      {
+	        var warnAboutAccessingRef = function () {
+	          if (!specialPropRefWarningShown) {
+	            specialPropRefWarningShown = true;
+	            error('%s: `ref` is not a prop. Trying to access it will result ' + 'in `undefined` being returned. If you need to access the same ' + 'value within the child component, you should pass it as a different ' + 'prop. (https://reactjs.org/link/special-props)', displayName);
+	          }
+	        };
+	        warnAboutAccessingRef.isReactWarning = true;
+	        Object.defineProperty(props, 'ref', {
+	          get: warnAboutAccessingRef,
+	          configurable: true
+	        });
+	      }
+	    }
+	    /**
+	     * Factory method to create a new React element. This no longer adheres to
+	     * the class pattern, so do not use new to call it. Also, instanceof check
+	     * will not work. Instead test $$typeof field against Symbol.for('react.element') to check
+	     * if something is a React Element.
+	     *
+	     * @param {*} type
+	     * @param {*} props
+	     * @param {*} key
+	     * @param {string|object} ref
+	     * @param {*} owner
+	     * @param {*} self A *temporary* helper to detect places where `this` is
+	     * different from the `owner` when React.createElement is called, so that we
+	     * can warn. We want to get rid of owner and replace string `ref`s with arrow
+	     * functions, and as long as `this` and owner are the same, there will be no
+	     * change in behavior.
+	     * @param {*} source An annotation object (added by a transpiler or otherwise)
+	     * indicating filename, line number, and/or other information.
+	     * @internal
+	     */
+
+	    var ReactElement = function (type, key, ref, self, source, owner, props) {
+	      var element = {
+	        // This tag allows us to uniquely identify this as a React Element
+	        $$typeof: REACT_ELEMENT_TYPE,
+	        // Built-in properties that belong on the element
+	        type: type,
+	        key: key,
+	        ref: ref,
+	        props: props,
+	        // Record the component responsible for creating this element.
+	        _owner: owner
+	      };
+	      {
+	        // The validation flag is currently mutative. We put it on
+	        // an external backing store so that we can freeze the whole object.
+	        // This can be replaced with a WeakMap once they are implemented in
+	        // commonly used development environments.
+	        element._store = {}; // To make comparing ReactElements easier for testing purposes, we make
+	        // the validation flag non-enumerable (where possible, which should
+	        // include every environment we run tests in), so the test framework
+	        // ignores it.
+
+	        Object.defineProperty(element._store, 'validated', {
+	          configurable: false,
+	          enumerable: false,
+	          writable: true,
+	          value: false
+	        }); // self and source are DEV only properties.
+
+	        Object.defineProperty(element, '_self', {
+	          configurable: false,
+	          enumerable: false,
+	          writable: false,
+	          value: self
+	        }); // Two elements created in two different places should be considered
+	        // equal for testing purposes and therefore we hide it from enumeration.
+
+	        Object.defineProperty(element, '_source', {
+	          configurable: false,
+	          enumerable: false,
+	          writable: false,
+	          value: source
+	        });
+	        if (Object.freeze) {
+	          Object.freeze(element.props);
+	          Object.freeze(element);
+	        }
+	      }
+	      return element;
+	    };
+	    /**
+	     * https://github.com/reactjs/rfcs/pull/107
+	     * @param {*} type
+	     * @param {object} props
+	     * @param {string} key
+	     */
+
+	    function jsxDEV(type, config, maybeKey, source, self) {
+	      {
+	        var propName; // Reserved names are extracted
+
+	        var props = {};
+	        var key = null;
+	        var ref = null; // Currently, key can be spread in as a prop. This causes a potential
+	        // issue if key is also explicitly declared (ie. <div {...props} key="Hi" />
+	        // or <div key="Hi" {...props} /> ). We want to deprecate key spread,
+	        // but as an intermediary step, we will use jsxDEV for everything except
+	        // <div {...props} key="Hi" />, because we aren't currently able to tell if
+	        // key is explicitly declared to be undefined or not.
+
+	        if (maybeKey !== undefined) {
+	          {
+	            checkKeyStringCoercion(maybeKey);
+	          }
+	          key = '' + maybeKey;
+	        }
+	        if (hasValidKey(config)) {
+	          {
+	            checkKeyStringCoercion(config.key);
+	          }
+	          key = '' + config.key;
+	        }
+	        if (hasValidRef(config)) {
+	          ref = config.ref;
+	          warnIfStringRefCannotBeAutoConverted(config, self);
+	        } // Remaining properties are added to a new props object
+
+	        for (propName in config) {
+	          if (hasOwnProperty.call(config, propName) && !RESERVED_PROPS.hasOwnProperty(propName)) {
+	            props[propName] = config[propName];
+	          }
+	        } // Resolve default props
+
+	        if (type && type.defaultProps) {
+	          var defaultProps = type.defaultProps;
+	          for (propName in defaultProps) {
+	            if (props[propName] === undefined) {
+	              props[propName] = defaultProps[propName];
+	            }
+	          }
+	        }
+	        if (key || ref) {
+	          var displayName = typeof type === 'function' ? type.displayName || type.name || 'Unknown' : type;
+	          if (key) {
+	            defineKeyPropWarningGetter(props, displayName);
+	          }
+	          if (ref) {
+	            defineRefPropWarningGetter(props, displayName);
+	          }
+	        }
+	        return ReactElement(type, key, ref, self, source, ReactCurrentOwner.current, props);
+	      }
+	    }
+	    var ReactCurrentOwner$1 = ReactSharedInternals.ReactCurrentOwner;
+	    var ReactDebugCurrentFrame$1 = ReactSharedInternals.ReactDebugCurrentFrame;
+	    function setCurrentlyValidatingElement$1(element) {
+	      {
+	        if (element) {
+	          var owner = element._owner;
+	          var stack = describeUnknownElementTypeFrameInDEV(element.type, element._source, owner ? owner.type : null);
+	          ReactDebugCurrentFrame$1.setExtraStackFrame(stack);
+	        } else {
+	          ReactDebugCurrentFrame$1.setExtraStackFrame(null);
+	        }
+	      }
+	    }
+	    var propTypesMisspellWarningShown;
+	    {
+	      propTypesMisspellWarningShown = false;
+	    }
+	    /**
+	     * Verifies the object is a ReactElement.
+	     * See https://reactjs.org/docs/react-api.html#isvalidelement
+	     * @param {?object} object
+	     * @return {boolean} True if `object` is a ReactElement.
+	     * @final
+	     */
+
+	    function isValidElement(object) {
+	      {
+	        return typeof object === 'object' && object !== null && object.$$typeof === REACT_ELEMENT_TYPE;
+	      }
+	    }
+	    function getDeclarationErrorAddendum() {
+	      {
+	        if (ReactCurrentOwner$1.current) {
+	          var name = getComponentNameFromType(ReactCurrentOwner$1.current.type);
+	          if (name) {
+	            return '\n\nCheck the render method of `' + name + '`.';
+	          }
+	        }
+	        return '';
+	      }
+	    }
+	    function getSourceInfoErrorAddendum(source) {
+	      {
+	        if (source !== undefined) {
+	          var fileName = source.fileName.replace(/^.*[\\\/]/, '');
+	          var lineNumber = source.lineNumber;
+	          return '\n\nCheck your code at ' + fileName + ':' + lineNumber + '.';
+	        }
+	        return '';
+	      }
+	    }
+	    /**
+	     * Warn if there's no key explicitly set on dynamic arrays of children or
+	     * object keys are not valid. This allows us to keep track of children between
+	     * updates.
+	     */
+
+	    var ownerHasKeyUseWarning = {};
+	    function getCurrentComponentErrorInfo(parentType) {
+	      {
+	        var info = getDeclarationErrorAddendum();
+	        if (!info) {
+	          var parentName = typeof parentType === 'string' ? parentType : parentType.displayName || parentType.name;
+	          if (parentName) {
+	            info = "\n\nCheck the top-level render call using <" + parentName + ">.";
+	          }
+	        }
+	        return info;
+	      }
+	    }
+	    /**
+	     * Warn if the element doesn't have an explicit key assigned to it.
+	     * This element is in an array. The array could grow and shrink or be
+	     * reordered. All children that haven't already been validated are required to
+	     * have a "key" property assigned to it. Error statuses are cached so a warning
+	     * will only be shown once.
+	     *
+	     * @internal
+	     * @param {ReactElement} element Element that requires a key.
+	     * @param {*} parentType element's parent's type.
+	     */
+
+	    function validateExplicitKey(element, parentType) {
+	      {
+	        if (!element._store || element._store.validated || element.key != null) {
+	          return;
+	        }
+	        element._store.validated = true;
+	        var currentComponentErrorInfo = getCurrentComponentErrorInfo(parentType);
+	        if (ownerHasKeyUseWarning[currentComponentErrorInfo]) {
+	          return;
+	        }
+	        ownerHasKeyUseWarning[currentComponentErrorInfo] = true; // Usually the current owner is the offender, but if it accepts children as a
+	        // property, it may be the creator of the child that's responsible for
+	        // assigning it a key.
+
+	        var childOwner = '';
+	        if (element && element._owner && element._owner !== ReactCurrentOwner$1.current) {
+	          // Give the component that originally created this child.
+	          childOwner = " It was passed a child from " + getComponentNameFromType(element._owner.type) + ".";
+	        }
+	        setCurrentlyValidatingElement$1(element);
+	        error('Each child in a list should have a unique "key" prop.' + '%s%s See https://reactjs.org/link/warning-keys for more information.', currentComponentErrorInfo, childOwner);
+	        setCurrentlyValidatingElement$1(null);
+	      }
+	    }
+	    /**
+	     * Ensure that every element either is passed in a static location, in an
+	     * array with an explicit keys property defined, or in an object literal
+	     * with valid key property.
+	     *
+	     * @internal
+	     * @param {ReactNode} node Statically passed child of any type.
+	     * @param {*} parentType node's parent's type.
+	     */
+
+	    function validateChildKeys(node, parentType) {
+	      {
+	        if (typeof node !== 'object') {
+	          return;
+	        }
+	        if (isArray(node)) {
+	          for (var i = 0; i < node.length; i++) {
+	            var child = node[i];
+	            if (isValidElement(child)) {
+	              validateExplicitKey(child, parentType);
+	            }
+	          }
+	        } else if (isValidElement(node)) {
+	          // This element was passed in a valid location.
+	          if (node._store) {
+	            node._store.validated = true;
+	          }
+	        } else if (node) {
+	          var iteratorFn = getIteratorFn(node);
+	          if (typeof iteratorFn === 'function') {
+	            // Entry iterators used to provide implicit keys,
+	            // but now we print a separate warning for them later.
+	            if (iteratorFn !== node.entries) {
+	              var iterator = iteratorFn.call(node);
+	              var step;
+	              while (!(step = iterator.next()).done) {
+	                if (isValidElement(step.value)) {
+	                  validateExplicitKey(step.value, parentType);
+	                }
+	              }
+	            }
+	          }
+	        }
+	      }
+	    }
+	    /**
+	     * Given an element, validate that its props follow the propTypes definition,
+	     * provided by the type.
+	     *
+	     * @param {ReactElement} element
+	     */
+
+	    function validatePropTypes(element) {
+	      {
+	        var type = element.type;
+	        if (type === null || type === undefined || typeof type === 'string') {
+	          return;
+	        }
+	        var propTypes;
+	        if (typeof type === 'function') {
+	          propTypes = type.propTypes;
+	        } else if (typeof type === 'object' && (type.$$typeof === REACT_FORWARD_REF_TYPE ||
+	        // Note: Memo only checks outer props here.
+	        // Inner props are checked in the reconciler.
+	        type.$$typeof === REACT_MEMO_TYPE)) {
+	          propTypes = type.propTypes;
+	        } else {
+	          return;
+	        }
+	        if (propTypes) {
+	          // Intentionally inside to avoid triggering lazy initializers:
+	          var name = getComponentNameFromType(type);
+	          checkPropTypes(propTypes, element.props, 'prop', name, element);
+	        } else if (type.PropTypes !== undefined && !propTypesMisspellWarningShown) {
+	          propTypesMisspellWarningShown = true; // Intentionally inside to avoid triggering lazy initializers:
+
+	          var _name = getComponentNameFromType(type);
+	          error('Component %s declared `PropTypes` instead of `propTypes`. Did you misspell the property assignment?', _name || 'Unknown');
+	        }
+	        if (typeof type.getDefaultProps === 'function' && !type.getDefaultProps.isReactClassApproved) {
+	          error('getDefaultProps is only used on classic React.createClass ' + 'definitions. Use a static property named `defaultProps` instead.');
+	        }
+	      }
+	    }
+	    /**
+	     * Given a fragment, validate that it can only be provided with fragment props
+	     * @param {ReactElement} fragment
+	     */
+
+	    function validateFragmentProps(fragment) {
+	      {
+	        var keys = Object.keys(fragment.props);
+	        for (var i = 0; i < keys.length; i++) {
+	          var key = keys[i];
+	          if (key !== 'children' && key !== 'key') {
+	            setCurrentlyValidatingElement$1(fragment);
+	            error('Invalid prop `%s` supplied to `React.Fragment`. ' + 'React.Fragment can only have `key` and `children` props.', key);
+	            setCurrentlyValidatingElement$1(null);
+	            break;
+	          }
+	        }
+	        if (fragment.ref !== null) {
+	          setCurrentlyValidatingElement$1(fragment);
+	          error('Invalid attribute `ref` supplied to `React.Fragment`.');
+	          setCurrentlyValidatingElement$1(null);
+	        }
+	      }
+	    }
+	    function jsxWithValidation(type, props, key, isStaticChildren, source, self) {
+	      {
+	        var validType = isValidElementType(type); // We warn in this case but don't throw. We expect the element creation to
+	        // succeed and there will likely be errors in render.
+
+	        if (!validType) {
+	          var info = '';
+	          if (type === undefined || typeof type === 'object' && type !== null && Object.keys(type).length === 0) {
+	            info += ' You likely forgot to export your component from the file ' + "it's defined in, or you might have mixed up default and named imports.";
+	          }
+	          var sourceInfo = getSourceInfoErrorAddendum(source);
+	          if (sourceInfo) {
+	            info += sourceInfo;
+	          } else {
+	            info += getDeclarationErrorAddendum();
+	          }
+	          var typeString;
+	          if (type === null) {
+	            typeString = 'null';
+	          } else if (isArray(type)) {
+	            typeString = 'array';
+	          } else if (type !== undefined && type.$$typeof === REACT_ELEMENT_TYPE) {
+	            typeString = "<" + (getComponentNameFromType(type.type) || 'Unknown') + " />";
+	            info = ' Did you accidentally export a JSX literal instead of a component?';
+	          } else {
+	            typeString = typeof type;
+	          }
+	          error('React.jsx: type is invalid -- expected a string (for ' + 'built-in components) or a class/function (for composite ' + 'components) but got: %s.%s', typeString, info);
+	        }
+	        var element = jsxDEV(type, props, key, source, self); // The result can be nullish if a mock or a custom function is used.
+	        // TODO: Drop this when these are no longer allowed as the type argument.
+
+	        if (element == null) {
+	          return element;
+	        } // Skip key warning if the type isn't valid since our key validation logic
+	        // doesn't expect a non-string/function type and can throw confusing errors.
+	        // We don't want exception behavior to differ between dev and prod.
+	        // (Rendering will throw with a helpful message and as soon as the type is
+	        // fixed, the key warnings will appear.)
+
+	        if (validType) {
+	          var children = props.children;
+	          if (children !== undefined) {
+	            if (isStaticChildren) {
+	              if (isArray(children)) {
+	                for (var i = 0; i < children.length; i++) {
+	                  validateChildKeys(children[i], type);
+	                }
+	                if (Object.freeze) {
+	                  Object.freeze(children);
+	                }
+	              } else {
+	                error('React.jsx: Static children should always be an array. ' + 'You are likely explicitly calling React.jsxs or React.jsxDEV. ' + 'Use the Babel transform instead.');
+	              }
+	            } else {
+	              validateChildKeys(children, type);
+	            }
+	          }
+	        }
+	        if (type === REACT_FRAGMENT_TYPE) {
+	          validateFragmentProps(element);
+	        } else {
+	          validatePropTypes(element);
+	        }
+	        return element;
+	      }
+	    } // These two functions exist to still get child warnings in dev
+	    // even with the prod transform. This means that jsxDEV is purely
+	    // opt-in behavior for better messages but that we won't stop
+	    // giving you warnings if you use production apis.
+
+	    function jsxWithValidationStatic(type, props, key) {
+	      {
+	        return jsxWithValidation(type, props, key, true);
+	      }
+	    }
+	    function jsxWithValidationDynamic(type, props, key) {
+	      {
+	        return jsxWithValidation(type, props, key, false);
+	      }
+	    }
+	    var jsx = jsxWithValidationDynamic; // we may want to special case jsxs internally to take advantage of static children.
+	    // for now we can ship identical prod functions
+
+	    var jsxs = jsxWithValidationStatic;
+	    reactJsxRuntime_development.Fragment = REACT_FRAGMENT_TYPE;
+	    reactJsxRuntime_development.jsx = jsx;
+	    reactJsxRuntime_development.jsxs = jsxs;
+	  })();
+	}
+
+	{
+	  jsxRuntime.exports = reactJsxRuntime_development;
+	}
+
+	var jsxRuntimeExports = jsxRuntime.exports;
+
+	/******************************************************************************
+	Copyright (c) Microsoft Corporation.
+
+	Permission to use, copy, modify, and/or distribute this software for any
+	purpose with or without fee is hereby granted.
+
+	THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+	REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+	AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+	INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+	LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+	OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+	PERFORMANCE OF THIS SOFTWARE.
+	***************************************************************************** */
+	var __assign = function () {
+	  __assign = Object.assign || function __assign(t) {
+	    for (var s, i = 1, n = arguments.length; i < n; i++) {
+	      s = arguments[i];
+	      for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+	    }
+	    return t;
+	  };
+	  return __assign.apply(this, arguments);
+	};
+	function __spreadArray(to, from, pack) {
+	  if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+	    if (ar || !(i in from)) {
+	      if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+	      ar[i] = from[i];
+	    }
+	  }
+	  return to.concat(ar || Array.prototype.slice.call(from));
+	}
+	typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+	  var e = new Error(message);
+	  return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+	};
+
+	function memoize(fn) {
+	  var cache = Object.create(null);
+	  return function (arg) {
+	    if (cache[arg] === undefined) cache[arg] = fn(arg);
+	    return cache[arg];
+	  };
+	}
+
+	var reactPropsRegex = /^((children|dangerouslySetInnerHTML|key|ref|autoFocus|defaultValue|defaultChecked|innerHTML|suppressContentEditableWarning|suppressHydrationWarning|valueLink|abbr|accept|acceptCharset|accessKey|action|allow|allowUserMedia|allowPaymentRequest|allowFullScreen|allowTransparency|alt|async|autoComplete|autoPlay|capture|cellPadding|cellSpacing|challenge|charSet|checked|cite|classID|className|cols|colSpan|content|contentEditable|contextMenu|controls|controlsList|coords|crossOrigin|data|dateTime|decoding|default|defer|dir|disabled|disablePictureInPicture|download|draggable|encType|enterKeyHint|form|formAction|formEncType|formMethod|formNoValidate|formTarget|frameBorder|headers|height|hidden|high|href|hrefLang|htmlFor|httpEquiv|id|inputMode|integrity|is|keyParams|keyType|kind|label|lang|list|loading|loop|low|marginHeight|marginWidth|max|maxLength|media|mediaGroup|method|min|minLength|multiple|muted|name|nonce|noValidate|open|optimum|pattern|placeholder|playsInline|poster|preload|profile|radioGroup|readOnly|referrerPolicy|rel|required|reversed|role|rows|rowSpan|sandbox|scope|scoped|scrolling|seamless|selected|shape|size|sizes|slot|span|spellCheck|src|srcDoc|srcLang|srcSet|start|step|style|summary|tabIndex|target|title|translate|type|useMap|value|width|wmode|wrap|about|datatype|inlist|prefix|property|resource|typeof|vocab|autoCapitalize|autoCorrect|autoSave|color|incremental|fallback|inert|itemProp|itemScope|itemType|itemID|itemRef|on|option|results|security|unselectable|accentHeight|accumulate|additive|alignmentBaseline|allowReorder|alphabetic|amplitude|arabicForm|ascent|attributeName|attributeType|autoReverse|azimuth|baseFrequency|baselineShift|baseProfile|bbox|begin|bias|by|calcMode|capHeight|clip|clipPathUnits|clipPath|clipRule|colorInterpolation|colorInterpolationFilters|colorProfile|colorRendering|contentScriptType|contentStyleType|cursor|cx|cy|d|decelerate|descent|diffuseConstant|direction|display|divisor|dominantBaseline|dur|dx|dy|edgeMode|elevation|enableBackground|end|exponent|externalResourcesRequired|fill|fillOpacity|fillRule|filter|filterRes|filterUnits|floodColor|floodOpacity|focusable|fontFamily|fontSize|fontSizeAdjust|fontStretch|fontStyle|fontVariant|fontWeight|format|from|fr|fx|fy|g1|g2|glyphName|glyphOrientationHorizontal|glyphOrientationVertical|glyphRef|gradientTransform|gradientUnits|hanging|horizAdvX|horizOriginX|ideographic|imageRendering|in|in2|intercept|k|k1|k2|k3|k4|kernelMatrix|kernelUnitLength|kerning|keyPoints|keySplines|keyTimes|lengthAdjust|letterSpacing|lightingColor|limitingConeAngle|local|markerEnd|markerMid|markerStart|markerHeight|markerUnits|markerWidth|mask|maskContentUnits|maskUnits|mathematical|mode|numOctaves|offset|opacity|operator|order|orient|orientation|origin|overflow|overlinePosition|overlineThickness|panose1|paintOrder|pathLength|patternContentUnits|patternTransform|patternUnits|pointerEvents|points|pointsAtX|pointsAtY|pointsAtZ|preserveAlpha|preserveAspectRatio|primitiveUnits|r|radius|refX|refY|renderingIntent|repeatCount|repeatDur|requiredExtensions|requiredFeatures|restart|result|rotate|rx|ry|scale|seed|shapeRendering|slope|spacing|specularConstant|specularExponent|speed|spreadMethod|startOffset|stdDeviation|stemh|stemv|stitchTiles|stopColor|stopOpacity|strikethroughPosition|strikethroughThickness|string|stroke|strokeDasharray|strokeDashoffset|strokeLinecap|strokeLinejoin|strokeMiterlimit|strokeOpacity|strokeWidth|surfaceScale|systemLanguage|tableValues|targetX|targetY|textAnchor|textDecoration|textRendering|textLength|to|transform|u1|u2|underlinePosition|underlineThickness|unicode|unicodeBidi|unicodeRange|unitsPerEm|vAlphabetic|vHanging|vIdeographic|vMathematical|values|vectorEffect|version|vertAdvY|vertOriginX|vertOriginY|viewBox|viewTarget|visibility|widths|wordSpacing|writingMode|x|xHeight|x1|x2|xChannelSelector|xlinkActuate|xlinkArcrole|xlinkHref|xlinkRole|xlinkShow|xlinkTitle|xlinkType|xmlBase|xmlns|xmlnsXlink|xmlLang|xmlSpace|y|y1|y2|yChannelSelector|z|zoomAndPan|for|class|autofocus)|(([Dd][Aa][Tt][Aa]|[Aa][Rr][Ii][Aa]|x)-.*))$/; // https://esbench.com/bench/5bfee68a4cd7e6009ef61d23
+
+	var isPropValid = /* #__PURE__ */memoize(function (prop) {
+	  return reactPropsRegex.test(prop) || prop.charCodeAt(0) === 111
+	  /* o */ && prop.charCodeAt(1) === 110
+	  /* n */ && prop.charCodeAt(2) < 91;
+	}
+	/* Z+1 */);
+
+	var MS = '-ms-';
+	var MOZ = '-moz-';
+	var WEBKIT = '-webkit-';
+	var COMMENT = 'comm';
+	var RULESET = 'rule';
+	var DECLARATION = 'decl';
+	var IMPORT = '@import';
+	var KEYFRAMES = '@keyframes';
+	var LAYER = '@layer';
+
+	/**
+	 * @param {number}
+	 * @return {number}
+	 */
+	var abs = Math.abs;
+
+	/**
+	 * @param {number}
+	 * @return {string}
+	 */
+	var from = String.fromCharCode;
+
+	/**
+	 * @param {object}
+	 * @return {object}
+	 */
+	var assign = Object.assign;
+
+	/**
+	 * @param {string} value
+	 * @param {number} length
+	 * @return {number}
+	 */
+	function hash(value, length) {
+	  return charat(value, 0) ^ 45 ? (((length << 2 ^ charat(value, 0)) << 2 ^ charat(value, 1)) << 2 ^ charat(value, 2)) << 2 ^ charat(value, 3) : 0;
+	}
+
+	/**
+	 * @param {string} value
+	 * @return {string}
+	 */
+	function trim(value) {
+	  return value.trim();
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {RegExp} pattern
+	 * @return {string?}
+	 */
+	function match(value, pattern) {
+	  return (value = pattern.exec(value)) ? value[0] : value;
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {(string|RegExp)} pattern
+	 * @param {string} replacement
+	 * @return {string}
+	 */
+	function replace(value, pattern, replacement) {
+	  return value.replace(pattern, replacement);
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {string} search
+	 * @return {number}
+	 */
+	function indexof(value, search) {
+	  return value.indexOf(search);
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {number} index
+	 * @return {number}
+	 */
+	function charat(value, index) {
+	  return value.charCodeAt(index) | 0;
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {number} begin
+	 * @param {number} end
+	 * @return {string}
+	 */
+	function substr(value, begin, end) {
+	  return value.slice(begin, end);
+	}
+
+	/**
+	 * @param {string} value
+	 * @return {number}
+	 */
+	function strlen(value) {
+	  return value.length;
+	}
+
+	/**
+	 * @param {any[]} value
+	 * @return {number}
+	 */
+	function sizeof(value) {
+	  return value.length;
+	}
+
+	/**
+	 * @param {any} value
+	 * @param {any[]} array
+	 * @return {any}
+	 */
+	function append(value, array) {
+	  return array.push(value), value;
+	}
+
+	/**
+	 * @param {string[]} array
+	 * @param {function} callback
+	 * @return {string}
+	 */
+	function combine(array, callback) {
+	  return array.map(callback).join('');
+	}
+
+	/**
+	 * @param {string[]} array
+	 * @param {RegExp} pattern
+	 * @return {string[]}
+	 */
+	function filter(array, pattern) {
+	  return array.filter(function (value) {
+	    return !match(value, pattern);
+	  });
+	}
+
+	var line = 1;
+	var column = 1;
+	var length = 0;
+	var position = 0;
+	var character = 0;
+	var characters = '';
+
+	/**
+	 * @param {string} value
+	 * @param {object | null} root
+	 * @param {object | null} parent
+	 * @param {string} type
+	 * @param {string[] | string} props
+	 * @param {object[] | string} children
+	 * @param {object[]} siblings
+	 * @param {number} length
+	 */
+	function node(value, root, parent, type, props, children, length, siblings) {
+	  return {
+	    value: value,
+	    root: root,
+	    parent: parent,
+	    type: type,
+	    props: props,
+	    children: children,
+	    line: line,
+	    column: column,
+	    length: length,
+	    return: '',
+	    siblings: siblings
+	  };
+	}
+
+	/**
+	 * @param {object} root
+	 * @param {object} props
+	 * @return {object}
+	 */
+	function copy(root, props) {
+	  return assign(node('', null, null, '', null, null, 0, root.siblings), root, {
+	    length: -root.length
+	  }, props);
+	}
+
+	/**
+	 * @param {object} root
+	 */
+	function lift(root) {
+	  while (root.root) root = copy(root.root, {
+	    children: [root]
+	  });
+	  append(root, root.siblings);
+	}
+
+	/**
+	 * @return {number}
+	 */
+	function char() {
+	  return character;
+	}
+
+	/**
+	 * @return {number}
+	 */
+	function prev() {
+	  character = position > 0 ? charat(characters, --position) : 0;
+	  if (column--, character === 10) column = 1, line--;
+	  return character;
+	}
+
+	/**
+	 * @return {number}
+	 */
+	function next() {
+	  character = position < length ? charat(characters, position++) : 0;
+	  if (column++, character === 10) column = 1, line++;
+	  return character;
+	}
+
+	/**
+	 * @return {number}
+	 */
+	function peek() {
+	  return charat(characters, position);
+	}
+
+	/**
+	 * @return {number}
+	 */
+	function caret() {
+	  return position;
+	}
+
+	/**
+	 * @param {number} begin
+	 * @param {number} end
+	 * @return {string}
+	 */
+	function slice(begin, end) {
+	  return substr(characters, begin, end);
+	}
+
+	/**
+	 * @param {number} type
+	 * @return {number}
+	 */
+	function token(type) {
+	  switch (type) {
+	    // \0 \t \n \r \s whitespace token
+	    case 0:
+	    case 9:
+	    case 10:
+	    case 13:
+	    case 32:
+	      return 5;
+	    // ! + , / > @ ~ isolate token
+	    case 33:
+	    case 43:
+	    case 44:
+	    case 47:
+	    case 62:
+	    case 64:
+	    case 126:
+	    // ; { } breakpoint token
+	    case 59:
+	    case 123:
+	    case 125:
+	      return 4;
+	    // : accompanied token
+	    case 58:
+	      return 3;
+	    // " ' ( [ opening delimit token
+	    case 34:
+	    case 39:
+	    case 40:
+	    case 91:
+	      return 2;
+	    // ) ] closing delimit token
+	    case 41:
+	    case 93:
+	      return 1;
+	  }
+	  return 0;
+	}
+
+	/**
+	 * @param {string} value
+	 * @return {any[]}
+	 */
+	function alloc(value) {
+	  return line = column = 1, length = strlen(characters = value), position = 0, [];
+	}
+
+	/**
+	 * @param {any} value
+	 * @return {any}
+	 */
+	function dealloc(value) {
+	  return characters = '', value;
+	}
+
+	/**
+	 * @param {number} type
+	 * @return {string}
+	 */
+	function delimit(type) {
+	  return trim(slice(position - 1, delimiter(type === 91 ? type + 2 : type === 40 ? type + 1 : type)));
+	}
+
+	/**
+	 * @param {number} type
+	 * @return {string}
+	 */
+	function whitespace(type) {
+	  while (character = peek()) if (character < 33) next();else break;
+	  return token(type) > 2 || token(character) > 3 ? '' : ' ';
+	}
+
+	/**
+	 * @param {number} index
+	 * @param {number} count
+	 * @return {string}
+	 */
+	function escaping(index, count) {
+	  while (--count && next())
+	  // not 0-9 A-F a-f
+	  if (character < 48 || character > 102 || character > 57 && character < 65 || character > 70 && character < 97) break;
+	  return slice(index, caret() + (count < 6 && peek() == 32 && next() == 32));
+	}
+
+	/**
+	 * @param {number} type
+	 * @return {number}
+	 */
+	function delimiter(type) {
+	  while (next()) switch (character) {
+	    // ] ) " '
+	    case type:
+	      return position;
+	    // " '
+	    case 34:
+	    case 39:
+	      if (type !== 34 && type !== 39) delimiter(character);
+	      break;
+	    // (
+	    case 40:
+	      if (type === 41) delimiter(type);
+	      break;
+	    // \
+	    case 92:
+	      next();
+	      break;
+	  }
+	  return position;
+	}
+
+	/**
+	 * @param {number} type
+	 * @param {number} index
+	 * @return {number}
+	 */
+	function commenter(type, index) {
+	  while (next())
+	  // //
+	  if (type + character === 47 + 10) break;
+	  // /*
+	  else if (type + character === 42 + 42 && peek() === 47) break;
+	  return '/*' + slice(index, position - 1) + '*' + from(type === 47 ? type : next());
+	}
+
+	/**
+	 * @param {number} index
+	 * @return {string}
+	 */
+	function identifier(index) {
+	  while (!token(peek())) next();
+	  return slice(index, position);
+	}
+
+	/**
+	 * @param {string} value
+	 * @return {object[]}
+	 */
+	function compile(value) {
+	  return dealloc(parse('', null, null, null, [''], value = alloc(value), 0, [0], value));
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {object} root
+	 * @param {object?} parent
+	 * @param {string[]} rule
+	 * @param {string[]} rules
+	 * @param {string[]} rulesets
+	 * @param {number[]} pseudo
+	 * @param {number[]} points
+	 * @param {string[]} declarations
+	 * @return {object}
+	 */
+	function parse(value, root, parent, rule, rules, rulesets, pseudo, points, declarations) {
+	  var index = 0;
+	  var offset = 0;
+	  var length = pseudo;
+	  var atrule = 0;
+	  var property = 0;
+	  var previous = 0;
+	  var variable = 1;
+	  var scanning = 1;
+	  var ampersand = 1;
+	  var character = 0;
+	  var type = '';
+	  var props = rules;
+	  var children = rulesets;
+	  var reference = rule;
+	  var characters = type;
+	  while (scanning) switch (previous = character, character = next()) {
+	    // (
+	    case 40:
+	      if (previous != 108 && charat(characters, length - 1) == 58) {
+	        if (indexof(characters += replace(delimit(character), '&', '&\f'), '&\f') != -1) ampersand = -1;
+	        break;
+	      }
+	    // " ' [
+	    case 34:
+	    case 39:
+	    case 91:
+	      characters += delimit(character);
+	      break;
+	    // \t \n \r \s
+	    case 9:
+	    case 10:
+	    case 13:
+	    case 32:
+	      characters += whitespace(previous);
+	      break;
+	    // \
+	    case 92:
+	      characters += escaping(caret() - 1, 7);
+	      continue;
+	    // /
+	    case 47:
+	      switch (peek()) {
+	        case 42:
+	        case 47:
+	          append(comment(commenter(next(), caret()), root, parent, declarations), declarations);
+	          break;
+	        default:
+	          characters += '/';
+	      }
+	      break;
+	    // {
+	    case 123 * variable:
+	      points[index++] = strlen(characters) * ampersand;
+	    // } ; \0
+	    case 125 * variable:
+	    case 59:
+	    case 0:
+	      switch (character) {
+	        // \0 }
+	        case 0:
+	        case 125:
+	          scanning = 0;
+	        // ;
+	        case 59 + offset:
+	          if (ampersand == -1) characters = replace(characters, /\f/g, '');
+	          if (property > 0 && strlen(characters) - length) append(property > 32 ? declaration(characters + ';', rule, parent, length - 1, declarations) : declaration(replace(characters, ' ', '') + ';', rule, parent, length - 2, declarations), declarations);
+	          break;
+	        // @ ;
+	        case 59:
+	          characters += ';';
+	        // { rule/at-rule
+	        default:
+	          append(reference = ruleset(characters, root, parent, index, offset, rules, points, type, props = [], children = [], length, rulesets), rulesets);
+	          if (character === 123) if (offset === 0) parse(characters, root, reference, reference, props, rulesets, length, points, children);else switch (atrule === 99 && charat(characters, 3) === 110 ? 100 : atrule) {
+	            // d l m s
+	            case 100:
+	            case 108:
+	            case 109:
+	            case 115:
+	              parse(value, reference, reference, rule && append(ruleset(value, reference, reference, 0, 0, rules, points, type, rules, props = [], length, children), children), rules, children, length, points, rule ? props : children);
+	              break;
+	            default:
+	              parse(characters, reference, reference, reference, [''], children, 0, points, children);
+	          }
+	      }
+	      index = offset = property = 0, variable = ampersand = 1, type = characters = '', length = pseudo;
+	      break;
+	    // :
+	    case 58:
+	      length = 1 + strlen(characters), property = previous;
+	    default:
+	      if (variable < 1) if (character == 123) --variable;else if (character == 125 && variable++ == 0 && prev() == 125) continue;
+	      switch (characters += from(character), character * variable) {
+	        // &
+	        case 38:
+	          ampersand = offset > 0 ? 1 : (characters += '\f', -1);
+	          break;
+	        // ,
+	        case 44:
+	          points[index++] = (strlen(characters) - 1) * ampersand, ampersand = 1;
+	          break;
+	        // @
+	        case 64:
+	          // -
+	          if (peek() === 45) characters += delimit(next());
+	          atrule = peek(), offset = length = strlen(type = characters += identifier(caret())), character++;
+	          break;
+	        // -
+	        case 45:
+	          if (previous === 45 && strlen(characters) == 2) variable = 0;
+	      }
+	  }
+	  return rulesets;
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {object} root
+	 * @param {object?} parent
+	 * @param {number} index
+	 * @param {number} offset
+	 * @param {string[]} rules
+	 * @param {number[]} points
+	 * @param {string} type
+	 * @param {string[]} props
+	 * @param {string[]} children
+	 * @param {number} length
+	 * @param {object[]} siblings
+	 * @return {object}
+	 */
+	function ruleset(value, root, parent, index, offset, rules, points, type, props, children, length, siblings) {
+	  var post = offset - 1;
+	  var rule = offset === 0 ? rules : [''];
+	  var size = sizeof(rule);
+	  for (var i = 0, j = 0, k = 0; i < index; ++i) for (var x = 0, y = substr(value, post + 1, post = abs(j = points[i])), z = value; x < size; ++x) if (z = trim(j > 0 ? rule[x] + ' ' + y : replace(y, /&\f/g, rule[x]))) props[k++] = z;
+	  return node(value, root, parent, offset === 0 ? RULESET : type, props, children, length, siblings);
+	}
+
+	/**
+	 * @param {number} value
+	 * @param {object} root
+	 * @param {object?} parent
+	 * @param {object[]} siblings
+	 * @return {object}
+	 */
+	function comment(value, root, parent, siblings) {
+	  return node(value, root, parent, COMMENT, from(char()), substr(value, 2, -2), 0, siblings);
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {object} root
+	 * @param {object?} parent
+	 * @param {number} length
+	 * @param {object[]} siblings
+	 * @return {object}
+	 */
+	function declaration(value, root, parent, length, siblings) {
+	  return node(value, root, parent, DECLARATION, substr(value, 0, length), substr(value, length + 1, -1), length, siblings);
+	}
+
+	/**
+	 * @param {string} value
+	 * @param {number} length
+	 * @param {object[]} children
+	 * @return {string}
+	 */
+	function prefix(value, length, children) {
+	  switch (hash(value, length)) {
+	    // color-adjust
+	    case 5103:
+	      return WEBKIT + 'print-' + value + value;
+	    // animation, animation-(delay|direction|duration|fill-mode|iteration-count|name|play-state|timing-function)
+	    case 5737:
+	    case 4201:
+	    case 3177:
+	    case 3433:
+	    case 1641:
+	    case 4457:
+	    case 2921:
+	    // text-decoration, filter, clip-path, backface-visibility, column, box-decoration-break
+	    case 5572:
+	    case 6356:
+	    case 5844:
+	    case 3191:
+	    case 6645:
+	    case 3005:
+	    // mask, mask-image, mask-(mode|clip|size), mask-(repeat|origin), mask-position, mask-composite,
+	    case 6391:
+	    case 5879:
+	    case 5623:
+	    case 6135:
+	    case 4599:
+	    case 4855:
+	    // background-clip, columns, column-(count|fill|gap|rule|rule-color|rule-style|rule-width|span|width)
+	    case 4215:
+	    case 6389:
+	    case 5109:
+	    case 5365:
+	    case 5621:
+	    case 3829:
+	      return WEBKIT + value + value;
+	    // tab-size
+	    case 4789:
+	      return MOZ + value + value;
+	    // appearance, user-select, transform, hyphens, text-size-adjust
+	    case 5349:
+	    case 4246:
+	    case 4810:
+	    case 6968:
+	    case 2756:
+	      return WEBKIT + value + MOZ + value + MS + value + value;
+	    // writing-mode
+	    case 5936:
+	      switch (charat(value, length + 11)) {
+	        // vertical-l(r)
+	        case 114:
+	          return WEBKIT + value + MS + replace(value, /[svh]\w+-[tblr]{2}/, 'tb') + value;
+	        // vertical-r(l)
+	        case 108:
+	          return WEBKIT + value + MS + replace(value, /[svh]\w+-[tblr]{2}/, 'tb-rl') + value;
+	        // horizontal(-)tb
+	        case 45:
+	          return WEBKIT + value + MS + replace(value, /[svh]\w+-[tblr]{2}/, 'lr') + value;
+	        // default: fallthrough to below
+	      }
+	    // flex, flex-direction, scroll-snap-type, writing-mode
+	    case 6828:
+	    case 4268:
+	    case 2903:
+	      return WEBKIT + value + MS + value + value;
+	    // order
+	    case 6165:
+	      return WEBKIT + value + MS + 'flex-' + value + value;
+	    // align-items
+	    case 5187:
+	      return WEBKIT + value + replace(value, /(\w+).+(:[^]+)/, WEBKIT + 'box-$1$2' + MS + 'flex-$1$2') + value;
+	    // align-self
+	    case 5443:
+	      return WEBKIT + value + MS + 'flex-item-' + replace(value, /flex-|-self/g, '') + (!match(value, /flex-|baseline/) ? MS + 'grid-row-' + replace(value, /flex-|-self/g, '') : '') + value;
+	    // align-content
+	    case 4675:
+	      return WEBKIT + value + MS + 'flex-line-pack' + replace(value, /align-content|flex-|-self/g, '') + value;
+	    // flex-shrink
+	    case 5548:
+	      return WEBKIT + value + MS + replace(value, 'shrink', 'negative') + value;
+	    // flex-basis
+	    case 5292:
+	      return WEBKIT + value + MS + replace(value, 'basis', 'preferred-size') + value;
+	    // flex-grow
+	    case 6060:
+	      return WEBKIT + 'box-' + replace(value, '-grow', '') + WEBKIT + value + MS + replace(value, 'grow', 'positive') + value;
+	    // transition
+	    case 4554:
+	      return WEBKIT + replace(value, /([^-])(transform)/g, '$1' + WEBKIT + '$2') + value;
+	    // cursor
+	    case 6187:
+	      return replace(replace(replace(value, /(zoom-|grab)/, WEBKIT + '$1'), /(image-set)/, WEBKIT + '$1'), value, '') + value;
+	    // background, background-image
+	    case 5495:
+	    case 3959:
+	      return replace(value, /(image-set\([^]*)/, WEBKIT + '$1' + '$`$1');
+	    // justify-content
+	    case 4968:
+	      return replace(replace(value, /(.+:)(flex-)?(.*)/, WEBKIT + 'box-pack:$3' + MS + 'flex-pack:$3'), /s.+-b[^;]+/, 'justify') + WEBKIT + value + value;
+	    // justify-self
+	    case 4200:
+	      if (!match(value, /flex-|baseline/)) return MS + 'grid-column-align' + substr(value, length) + value;
+	      break;
+	    // grid-template-(columns|rows)
+	    case 2592:
+	    case 3360:
+	      return MS + replace(value, 'template-', '') + value;
+	    // grid-(row|column)-start
+	    case 4384:
+	    case 3616:
+	      if (children && children.some(function (element, index) {
+	        return length = index, match(element.props, /grid-\w+-end/);
+	      })) {
+	        return ~indexof(value + (children = children[length].value), 'span') ? value : MS + replace(value, '-start', '') + value + MS + 'grid-row-span:' + (~indexof(children, 'span') ? match(children, /\d+/) : +match(children, /\d+/) - +match(value, /\d+/)) + ';';
+	      }
+	      return MS + replace(value, '-start', '') + value;
+	    // grid-(row|column)-end
+	    case 4896:
+	    case 4128:
+	      return children && children.some(function (element) {
+	        return match(element.props, /grid-\w+-start/);
+	      }) ? value : MS + replace(replace(value, '-end', '-span'), 'span ', '') + value;
+	    // (margin|padding)-inline-(start|end)
+	    case 4095:
+	    case 3583:
+	    case 4068:
+	    case 2532:
+	      return replace(value, /(.+)-inline(.+)/, WEBKIT + '$1$2') + value;
+	    // (min|max)?(width|height|inline-size|block-size)
+	    case 8116:
+	    case 7059:
+	    case 5753:
+	    case 5535:
+	    case 5445:
+	    case 5701:
+	    case 4933:
+	    case 4677:
+	    case 5533:
+	    case 5789:
+	    case 5021:
+	    case 4765:
+	      // stretch, max-content, min-content, fill-available
+	      if (strlen(value) - 1 - length > 6) switch (charat(value, length + 1)) {
+	        // (m)ax-content, (m)in-content
+	        case 109:
+	          // -
+	          if (charat(value, length + 4) !== 45) break;
+	        // (f)ill-available, (f)it-content
+	        case 102:
+	          return replace(value, /(.+:)(.+)-([^]+)/, '$1' + WEBKIT + '$2-$3' + '$1' + MOZ + (charat(value, length + 3) == 108 ? '$3' : '$2-$3')) + value;
+	        // (s)tretch
+	        case 115:
+	          return ~indexof(value, 'stretch') ? prefix(replace(value, 'stretch', 'fill-available'), length, children) + value : value;
+	      }
+	      break;
+	    // grid-(column|row)
+	    case 5152:
+	    case 5920:
+	      return replace(value, /(.+?):(\d+)(\s*\/\s*(span)?\s*(\d+))?(.*)/, function (_, a, b, c, d, e, f) {
+	        return MS + a + ':' + b + f + (c ? MS + a + '-span:' + (d ? e : +e - +b) + f : '') + value;
+	      });
+	    // position: sticky
+	    case 4949:
+	      // stick(y)?
+	      if (charat(value, length + 6) === 121) return replace(value, ':', ':' + WEBKIT) + value;
+	      break;
+	    // display: (flex|inline-flex|grid|inline-grid)
+	    case 6444:
+	      switch (charat(value, charat(value, 14) === 45 ? 18 : 11)) {
+	        // (inline-)?fle(x)
+	        case 120:
+	          return replace(value, /(.+:)([^;\s!]+)(;|(\s+)?!.+)?/, '$1' + WEBKIT + (charat(value, 14) === 45 ? 'inline-' : '') + 'box$3' + '$1' + WEBKIT + '$2$3' + '$1' + MS + '$2box$3') + value;
+	        // (inline-)?gri(d)
+	        case 100:
+	          return replace(value, ':', ':' + MS) + value;
+	      }
+	      break;
+	    // scroll-margin, scroll-margin-(top|right|bottom|left)
+	    case 5719:
+	    case 2647:
+	    case 2135:
+	    case 3927:
+	    case 2391:
+	      return replace(value, 'scroll-', 'scroll-snap-') + value;
+	  }
+	  return value;
+	}
+
+	/**
+	 * @param {object[]} children
+	 * @param {function} callback
+	 * @return {string}
+	 */
+	function serialize(children, callback) {
+	  var output = '';
+	  for (var i = 0; i < children.length; i++) output += callback(children[i], i, children, callback) || '';
+	  return output;
+	}
+
+	/**
+	 * @param {object} element
+	 * @param {number} index
+	 * @param {object[]} children
+	 * @param {function} callback
+	 * @return {string}
+	 */
+	function stringify(element, index, children, callback) {
+	  switch (element.type) {
+	    case LAYER:
+	      if (element.children.length) break;
+	    case IMPORT:
+	    case DECLARATION:
+	      return element.return = element.return || element.value;
+	    case COMMENT:
+	      return '';
+	    case KEYFRAMES:
+	      return element.return = element.value + '{' + serialize(element.children, callback) + '}';
+	    case RULESET:
+	      if (!strlen(element.value = element.props.join(','))) return '';
+	  }
+	  return strlen(children = serialize(element.children, callback)) ? element.return = element.value + '{' + children + '}' : '';
+	}
+
+	/**
+	 * @param {function[]} collection
+	 * @return {function}
+	 */
+	function middleware(collection) {
+	  var length = sizeof(collection);
+	  return function (element, index, children, callback) {
+	    var output = '';
+	    for (var i = 0; i < length; i++) output += collection[i](element, index, children, callback) || '';
+	    return output;
+	  };
+	}
+
+	/**
+	 * @param {function} callback
+	 * @return {function}
+	 */
+	function rulesheet(callback) {
+	  return function (element) {
+	    if (!element.root) if (element = element.return) callback(element);
+	  };
+	}
+
+	/**
+	 * @param {object} element
+	 * @param {number} index
+	 * @param {object[]} children
+	 * @param {function} callback
+	 */
+	function prefixer(element, index, children, callback) {
+	  if (element.length > -1) if (!element.return) switch (element.type) {
+	    case DECLARATION:
+	      element.return = prefix(element.value, element.length, children);
+	      return;
+	    case KEYFRAMES:
+	      return serialize([copy(element, {
+	        value: replace(element.value, '@', '@' + WEBKIT)
+	      })], callback);
+	    case RULESET:
+	      if (element.length) return combine(children = element.props, function (value) {
+	        switch (match(value, callback = /(::plac\w+|:read-\w+)/)) {
+	          // :read-(only|write)
+	          case ':read-only':
+	          case ':read-write':
+	            lift(copy(element, {
+	              props: [replace(value, /:(read-\w+)/, ':' + MOZ + '$1')]
+	            }));
+	            lift(copy(element, {
+	              props: [value]
+	            }));
+	            assign(element, {
+	              props: filter(children, callback)
+	            });
+	            break;
+	          // :placeholder
+	          case '::placeholder':
+	            lift(copy(element, {
+	              props: [replace(value, /:(plac\w+)/, ':' + WEBKIT + 'input-$1')]
+	            }));
+	            lift(copy(element, {
+	              props: [replace(value, /:(plac\w+)/, ':' + MOZ + '$1')]
+	            }));
+	            lift(copy(element, {
+	              props: [replace(value, /:(plac\w+)/, MS + 'input-$1')]
+	            }));
+	            lift(copy(element, {
+	              props: [value]
+	            }));
+	            assign(element, {
+	              props: filter(children, callback)
+	            });
+	            break;
+	        }
+	        return '';
+	      });
+	  }
+	}
+
+	var unitlessKeys = {
+	  animationIterationCount: 1,
+	  aspectRatio: 1,
+	  borderImageOutset: 1,
+	  borderImageSlice: 1,
+	  borderImageWidth: 1,
+	  boxFlex: 1,
+	  boxFlexGroup: 1,
+	  boxOrdinalGroup: 1,
+	  columnCount: 1,
+	  columns: 1,
+	  flex: 1,
+	  flexGrow: 1,
+	  flexPositive: 1,
+	  flexShrink: 1,
+	  flexNegative: 1,
+	  flexOrder: 1,
+	  gridRow: 1,
+	  gridRowEnd: 1,
+	  gridRowSpan: 1,
+	  gridRowStart: 1,
+	  gridColumn: 1,
+	  gridColumnEnd: 1,
+	  gridColumnSpan: 1,
+	  gridColumnStart: 1,
+	  msGridRow: 1,
+	  msGridRowSpan: 1,
+	  msGridColumn: 1,
+	  msGridColumnSpan: 1,
+	  fontWeight: 1,
+	  lineHeight: 1,
+	  opacity: 1,
+	  order: 1,
+	  orphans: 1,
+	  tabSize: 1,
+	  widows: 1,
+	  zIndex: 1,
+	  zoom: 1,
+	  WebkitLineClamp: 1,
+	  // SVG-related properties
+	  fillOpacity: 1,
+	  floodOpacity: 1,
+	  stopOpacity: 1,
+	  strokeDasharray: 1,
+	  strokeDashoffset: 1,
+	  strokeMiterlimit: 1,
+	  strokeOpacity: 1,
+	  strokeWidth: 1
+	};
+
+	var f = "undefined" != typeof process && void 0 !== process.env && (process.env.REACT_APP_SC_ATTR || process.env.SC_ATTR) || "data-styled",
+	  m = "active",
+	  y = "data-styled-version",
+	  v = "6.1.2",
+	  g = "/*!sc*/\n",
+	  S = "undefined" != typeof window && "HTMLElement" in window,
+	  w = Boolean("boolean" == typeof SC_DISABLE_SPEEDY ? SC_DISABLE_SPEEDY : "undefined" != typeof process && void 0 !== process.env && void 0 !== process.env.REACT_APP_SC_DISABLE_SPEEDY && "" !== process.env.REACT_APP_SC_DISABLE_SPEEDY ? "false" !== process.env.REACT_APP_SC_DISABLE_SPEEDY && process.env.REACT_APP_SC_DISABLE_SPEEDY : "undefined" != typeof process && void 0 !== process.env && void 0 !== process.env.SC_DISABLE_SPEEDY && "" !== process.env.SC_DISABLE_SPEEDY ? "false" !== process.env.SC_DISABLE_SPEEDY && process.env.SC_DISABLE_SPEEDY : "production" !== "development"),
+	  E = /invalid hook call/i,
+	  N = new Set(),
+	  P = function (t, n) {
+	    {
+	      var o = n ? ' with the id of "'.concat(n, '"') : "",
+	        s = "The component ".concat(t).concat(o, " has been created dynamically.\n") + "You may see this warning because you've called styled inside another component.\nTo resolve this only create new StyledComponents outside of any render method and function component.",
+	        i = console.error;
+	      try {
+	        var a = !0;
+	        console.error = function (t) {
+	          for (var n = [], o = 1; o < arguments.length; o++) n[o - 1] = arguments[o];
+	          E.test(t) ? (a = !1, N.delete(s)) : i.apply(void 0, __spreadArray([t], n, !1));
+	        }, reactExports.useRef(), a && !N.has(s) && (console.warn(s), N.add(s));
+	      } catch (e) {
+	        E.test(e.message) && N.delete(s);
+	      } finally {
+	        console.error = i;
+	      }
+	    }
+	  },
+	  _ = Object.freeze([]),
+	  C = Object.freeze({});
+	function I(e, t, n) {
+	  return void 0 === n && (n = C), e.theme !== n.theme && e.theme || t || n.theme;
+	}
+	var A = new Set(["a", "abbr", "address", "area", "article", "aside", "audio", "b", "base", "bdi", "bdo", "big", "blockquote", "body", "br", "button", "canvas", "caption", "cite", "code", "col", "colgroup", "data", "datalist", "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "html", "i", "iframe", "img", "input", "ins", "kbd", "keygen", "label", "legend", "li", "link", "main", "map", "mark", "menu", "menuitem", "meta", "meter", "nav", "noscript", "object", "ol", "optgroup", "option", "output", "p", "param", "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp", "script", "section", "select", "small", "source", "span", "strong", "style", "sub", "summary", "sup", "table", "tbody", "td", "textarea", "tfoot", "th", "thead", "time", "tr", "track", "u", "ul", "use", "var", "video", "wbr", "circle", "clipPath", "defs", "ellipse", "foreignObject", "g", "image", "line", "linearGradient", "marker", "mask", "path", "pattern", "polygon", "polyline", "radialGradient", "rect", "stop", "svg", "text", "tspan"]),
+	  O = /[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~-]+/g,
+	  D = /(^-|-$)/g;
+	function R(e) {
+	  return e.replace(O, "-").replace(D, "");
+	}
+	var T = /(a)(d)/gi,
+	  k = 52,
+	  j = function (e) {
+	    return String.fromCharCode(e + (e > 25 ? 39 : 97));
+	  };
+	function x(e) {
+	  var t,
+	    n = "";
+	  for (t = Math.abs(e); t > k; t = t / k | 0) n = j(t % k) + n;
+	  return (j(t % k) + n).replace(T, "$1-$2");
+	}
+	var V,
+	  F = 5381,
+	  M = function (e, t) {
+	    for (var n = t.length; n;) e = 33 * e ^ t.charCodeAt(--n);
+	    return e;
+	  },
+	  z = function (e) {
+	    return M(F, e);
+	  };
+	function $(e) {
+	  return x(z(e) >>> 0);
+	}
+	function B(e) {
+	  return "string" == typeof e && e || e.displayName || e.name || "Component";
+	}
+	function L(e) {
+	  return "string" == typeof e && (e.charAt(0) === e.charAt(0).toLowerCase());
+	}
+	var G = "function" == typeof Symbol && Symbol.for,
+	  Y = G ? Symbol.for("react.memo") : 60115,
+	  q = G ? Symbol.for("react.forward_ref") : 60112,
+	  W = {
+	    childContextTypes: !0,
+	    contextType: !0,
+	    contextTypes: !0,
+	    defaultProps: !0,
+	    displayName: !0,
+	    getDefaultProps: !0,
+	    getDerivedStateFromError: !0,
+	    getDerivedStateFromProps: !0,
+	    mixins: !0,
+	    propTypes: !0,
+	    type: !0
+	  },
+	  H = {
+	    name: !0,
+	    length: !0,
+	    prototype: !0,
+	    caller: !0,
+	    callee: !0,
+	    arguments: !0,
+	    arity: !0
+	  },
+	  U = {
+	    $$typeof: !0,
+	    compare: !0,
+	    defaultProps: !0,
+	    displayName: !0,
+	    propTypes: !0,
+	    type: !0
+	  },
+	  J = ((V = {})[q] = {
+	    $$typeof: !0,
+	    render: !0,
+	    defaultProps: !0,
+	    displayName: !0,
+	    propTypes: !0
+	  }, V[Y] = U, V);
+	function X(e) {
+	  return ("type" in (t = e) && t.type.$$typeof) === Y ? U : "$$typeof" in e ? J[e.$$typeof] : W;
+	  var t;
+	}
+	var Z = Object.defineProperty,
+	  K = Object.getOwnPropertyNames,
+	  Q = Object.getOwnPropertySymbols,
+	  ee = Object.getOwnPropertyDescriptor,
+	  te = Object.getPrototypeOf,
+	  ne = Object.prototype;
+	function oe(e, t, n) {
+	  if ("string" != typeof t) {
+	    if (ne) {
+	      var o = te(t);
+	      o && o !== ne && oe(e, o, n);
+	    }
+	    var r = K(t);
+	    Q && (r = r.concat(Q(t)));
+	    for (var s = X(e), i = X(t), a = 0; a < r.length; ++a) {
+	      var c = r[a];
+	      if (!(c in H || n && n[c] || i && c in i || s && c in s)) {
+	        var l = ee(t, c);
+	        try {
+	          Z(e, c, l);
+	        } catch (e) {}
+	      }
+	    }
+	  }
+	  return e;
+	}
+	function re(e) {
+	  return "function" == typeof e;
+	}
+	function se(e) {
+	  return "object" == typeof e && "styledComponentId" in e;
+	}
+	function ie(e, t) {
+	  return e && t ? "".concat(e, " ").concat(t) : e || t || "";
+	}
+	function ae(e, t) {
+	  if (0 === e.length) return "";
+	  for (var n = e[0], o = 1; o < e.length; o++) n += t ? t + e[o] : e[o];
+	  return n;
+	}
+	function ce(e) {
+	  return null !== e && "object" == typeof e && e.constructor.name === Object.name && !("props" in e && e.$$typeof);
+	}
+	function le(e, t, n) {
+	  if (void 0 === n && (n = !1), !n && !ce(e) && !Array.isArray(e)) return t;
+	  if (Array.isArray(t)) for (var o = 0; o < t.length; o++) e[o] = le(e[o], t[o]);else if (ce(t)) for (var o in t) e[o] = le(e[o], t[o]);
+	  return e;
+	}
+	function ue(e, t) {
+	  Object.defineProperty(e, "toString", {
+	    value: t
+	  });
+	}
+	var pe = {
+	  1: "Cannot create styled-component for component: %s.\n\n",
+	  2: "Can't collect styles once you've consumed a `ServerStyleSheet`'s styles! `ServerStyleSheet` is a one off instance for each server-side render cycle.\n\n- Are you trying to reuse it across renders?\n- Are you accidentally calling collectStyles twice?\n\n",
+	  3: "Streaming SSR is only supported in a Node.js environment; Please do not try to call this method in the browser.\n\n",
+	  4: "The `StyleSheetManager` expects a valid target or sheet prop!\n\n- Does this error occur on the client and is your target falsy?\n- Does this error occur on the server and is the sheet falsy?\n\n",
+	  5: "The clone method cannot be used on the client!\n\n- Are you running in a client-like environment on the server?\n- Are you trying to run SSR on the client?\n\n",
+	  6: "Trying to insert a new style tag, but the given Node is unmounted!\n\n- Are you using a custom target that isn't mounted?\n- Does your document not have a valid head element?\n- Have you accidentally removed a style tag manually?\n\n",
+	  7: 'ThemeProvider: Please return an object from your "theme" prop function, e.g.\n\n```js\ntheme={() => ({})}\n```\n\n',
+	  8: 'ThemeProvider: Please make your "theme" prop an object.\n\n',
+	  9: "Missing document `<head>`\n\n",
+	  10: "Cannot find a StyleSheet instance. Usually this happens if there are multiple copies of styled-components loaded at once. Check out this issue for how to troubleshoot and fix the common cases where this situation can happen: https://github.com/styled-components/styled-components/issues/1941#issuecomment-417862021\n\n",
+	  11: "_This error was replaced with a dev-time warning, it will be deleted for v4 final._ [createGlobalStyle] received children which will not be rendered. Please use the component without passing children elements.\n\n",
+	  12: "It seems you are interpolating a keyframe declaration (%s) into an untagged string. This was supported in styled-components v3, but is not longer supported in v4 as keyframes are now injected on-demand. Please wrap your string in the css\\`\\` helper which ensures the styles are injected correctly. See https://www.styled-components.com/docs/api#css\n\n",
+	  13: "%s is not a styled component and cannot be referred to via component selector. See https://www.styled-components.com/docs/advanced#referring-to-other-components for more details.\n\n",
+	  14: 'ThemeProvider: "theme" prop is required.\n\n',
+	  15: "A stylis plugin has been supplied that is not named. We need a name for each plugin to be able to prevent styling collisions between different stylis configurations within the same app. Before you pass your plugin to `<StyleSheetManager stylisPlugins={[]}>`, please make sure each plugin is uniquely-named, e.g.\n\n```js\nObject.defineProperty(importedPlugin, 'name', { value: 'some-unique-name' });\n```\n\n",
+	  16: "Reached the limit of how many styled components may be created at group %s.\nYou may only create up to 1,073,741,824 components. If you're creating components dynamically,\nas for instance in your render method then you may be running into this limitation.\n\n",
+	  17: "CSSStyleSheet could not be found on HTMLStyleElement.\nHas styled-components' style tag been unmounted or altered by another script?\n",
+	  18: "ThemeProvider: Please make sure your useTheme hook is within a `<ThemeProvider>`"
+	} ;
+	function de() {
+	  for (var e = [], t = 0; t < arguments.length; t++) e[t] = arguments[t];
+	  for (var n = e[0], o = [], r = 1, s = e.length; r < s; r += 1) o.push(e[r]);
+	  return o.forEach(function (e) {
+	    n = n.replace(/%[a-z]/, e);
+	  }), n;
+	}
+	function he(t) {
+	  for (var n = [], o = 1; o < arguments.length; o++) n[o - 1] = arguments[o];
+	  return new Error(de.apply(void 0, __spreadArray([pe[t]], n, !1)).trim());
+	}
+	var fe = function () {
+	    function e(e) {
+	      this.groupSizes = new Uint32Array(512), this.length = 512, this.tag = e;
+	    }
+	    return e.prototype.indexOfGroup = function (e) {
+	      for (var t = 0, n = 0; n < e; n++) t += this.groupSizes[n];
+	      return t;
+	    }, e.prototype.insertRules = function (e, t) {
+	      if (e >= this.groupSizes.length) {
+	        for (var n = this.groupSizes, o = n.length, r = o; e >= r;) if ((r <<= 1) < 0) throw he(16, "".concat(e));
+	        this.groupSizes = new Uint32Array(r), this.groupSizes.set(n), this.length = r;
+	        for (var s = o; s < r; s++) this.groupSizes[s] = 0;
+	      }
+	      for (var i = this.indexOfGroup(e + 1), a = (s = 0, t.length); s < a; s++) this.tag.insertRule(i, t[s]) && (this.groupSizes[e]++, i++);
+	    }, e.prototype.clearGroup = function (e) {
+	      if (e < this.length) {
+	        var t = this.groupSizes[e],
+	          n = this.indexOfGroup(e),
+	          o = n + t;
+	        this.groupSizes[e] = 0;
+	        for (var r = n; r < o; r++) this.tag.deleteRule(n);
+	      }
+	    }, e.prototype.getGroup = function (e) {
+	      var t = "";
+	      if (e >= this.length || 0 === this.groupSizes[e]) return t;
+	      for (var n = this.groupSizes[e], o = this.indexOfGroup(e), r = o + n, s = o; s < r; s++) t += "".concat(this.tag.getRule(s)).concat(g);
+	      return t;
+	    }, e;
+	  }(),
+	  me = new Map(),
+	  ye = new Map(),
+	  ve = 1,
+	  ge = function (e) {
+	    if (me.has(e)) return me.get(e);
+	    for (; ye.has(ve);) ve++;
+	    var t = ve++;
+	    if (((0 | t) < 0 || t > 1073741824)) throw he(16, "".concat(t));
+	    return me.set(e, t), ye.set(t, e), t;
+	  },
+	  Se = function (e, t) {
+	    ve = t + 1, me.set(e, t), ye.set(t, e);
+	  },
+	  we = "style[".concat(f, "][").concat(y, '="').concat(v, '"]'),
+	  be = new RegExp("^".concat(f, '\\.g(\\d+)\\[id="([\\w\\d-]+)"\\].*?"([^"]*)')),
+	  Ee = function (e, t, n) {
+	    for (var o, r = n.split(","), s = 0, i = r.length; s < i; s++) (o = r[s]) && e.registerName(t, o);
+	  },
+	  Ne = function (e, t) {
+	    for (var n, o = (null !== (n = t.textContent) && void 0 !== n ? n : "").split(g), r = [], s = 0, i = o.length; s < i; s++) {
+	      var a = o[s].trim();
+	      if (a) {
+	        var c = a.match(be);
+	        if (c) {
+	          var l = 0 | parseInt(c[1], 10),
+	            u = c[2];
+	          0 !== l && (Se(u, l), Ee(e, u, c[3]), e.getTag().insertRules(l, r)), r.length = 0;
+	        } else r.push(a);
+	      }
+	    }
+	  };
+	function Pe() {
+	  return "undefined" != typeof __webpack_nonce__ ? __webpack_nonce__ : null;
+	}
+	var _e = function (e) {
+	    var t = document.head,
+	      n = e || t,
+	      o = document.createElement("style"),
+	      r = function (e) {
+	        var t = Array.from(e.querySelectorAll("style[".concat(f, "]")));
+	        return t[t.length - 1];
+	      }(n),
+	      s = void 0 !== r ? r.nextSibling : null;
+	    o.setAttribute(f, m), o.setAttribute(y, v);
+	    var i = Pe();
+	    return i && o.setAttribute("nonce", i), n.insertBefore(o, s), o;
+	  },
+	  Ce = function () {
+	    function e(e) {
+	      this.element = _e(e), this.element.appendChild(document.createTextNode("")), this.sheet = function (e) {
+	        if (e.sheet) return e.sheet;
+	        for (var t = document.styleSheets, n = 0, o = t.length; n < o; n++) {
+	          var r = t[n];
+	          if (r.ownerNode === e) return r;
+	        }
+	        throw he(17);
+	      }(this.element), this.length = 0;
+	    }
+	    return e.prototype.insertRule = function (e, t) {
+	      try {
+	        return this.sheet.insertRule(t, e), this.length++, !0;
+	      } catch (e) {
+	        return !1;
+	      }
+	    }, e.prototype.deleteRule = function (e) {
+	      this.sheet.deleteRule(e), this.length--;
+	    }, e.prototype.getRule = function (e) {
+	      var t = this.sheet.cssRules[e];
+	      return t && t.cssText ? t.cssText : "";
+	    }, e;
+	  }(),
+	  Ie = function () {
+	    function e(e) {
+	      this.element = _e(e), this.nodes = this.element.childNodes, this.length = 0;
+	    }
+	    return e.prototype.insertRule = function (e, t) {
+	      if (e <= this.length && e >= 0) {
+	        var n = document.createTextNode(t);
+	        return this.element.insertBefore(n, this.nodes[e] || null), this.length++, !0;
+	      }
+	      return !1;
+	    }, e.prototype.deleteRule = function (e) {
+	      this.element.removeChild(this.nodes[e]), this.length--;
+	    }, e.prototype.getRule = function (e) {
+	      return e < this.length ? this.nodes[e].textContent : "";
+	    }, e;
+	  }(),
+	  Ae = function () {
+	    function e(e) {
+	      this.rules = [], this.length = 0;
+	    }
+	    return e.prototype.insertRule = function (e, t) {
+	      return e <= this.length && (this.rules.splice(e, 0, t), this.length++, !0);
+	    }, e.prototype.deleteRule = function (e) {
+	      this.rules.splice(e, 1), this.length--;
+	    }, e.prototype.getRule = function (e) {
+	      return e < this.length ? this.rules[e] : "";
+	    }, e;
+	  }(),
+	  Oe = S,
+	  De = {
+	    isServer: !S,
+	    useCSSOMInjection: !w
+	  },
+	  Re = function () {
+	    function e(e, n, o) {
+	      void 0 === e && (e = C), void 0 === n && (n = {});
+	      var r = this;
+	      this.options = __assign(__assign({}, De), e), this.gs = n, this.names = new Map(o), this.server = !!e.isServer, !this.server && S && Oe && (Oe = !1, function (e) {
+	        for (var t = document.querySelectorAll(we), n = 0, o = t.length; n < o; n++) {
+	          var r = t[n];
+	          r && r.getAttribute(f) !== m && (Ne(e, r), r.parentNode && r.parentNode.removeChild(r));
+	        }
+	      }(this)), ue(this, function () {
+	        return function (e) {
+	          for (var t = e.getTag(), n = t.length, o = "", r = function (n) {
+	              var r = function (e) {
+	                return ye.get(e);
+	              }(n);
+	              if (void 0 === r) return "continue";
+	              var s = e.names.get(r),
+	                i = t.getGroup(n);
+	              if (void 0 === s || 0 === i.length) return "continue";
+	              var a = "".concat(f, ".g").concat(n, '[id="').concat(r, '"]'),
+	                c = "";
+	              void 0 !== s && s.forEach(function (e) {
+	                e.length > 0 && (c += "".concat(e, ","));
+	              }), o += "".concat(i).concat(a, '{content:"').concat(c, '"}').concat(g);
+	            }, s = 0; s < n; s++) r(s);
+	          return o;
+	        }(r);
+	      });
+	    }
+	    return e.registerId = function (e) {
+	      return ge(e);
+	    }, e.prototype.reconstructWithOptions = function (n, o) {
+	      return void 0 === o && (o = !0), new e(__assign(__assign({}, this.options), n), this.gs, o && this.names || void 0);
+	    }, e.prototype.allocateGSInstance = function (e) {
+	      return this.gs[e] = (this.gs[e] || 0) + 1;
+	    }, e.prototype.getTag = function () {
+	      return this.tag || (this.tag = (e = function (e) {
+	        var t = e.useCSSOMInjection,
+	          n = e.target;
+	        return e.isServer ? new Ae(n) : t ? new Ce(n) : new Ie(n);
+	      }(this.options), new fe(e)));
+	      var e;
+	    }, e.prototype.hasNameForId = function (e, t) {
+	      return this.names.has(e) && this.names.get(e).has(t);
+	    }, e.prototype.registerName = function (e, t) {
+	      if (ge(e), this.names.has(e)) this.names.get(e).add(t);else {
+	        var n = new Set();
+	        n.add(t), this.names.set(e, n);
+	      }
+	    }, e.prototype.insertRules = function (e, t, n) {
+	      this.registerName(e, t), this.getTag().insertRules(ge(e), n);
+	    }, e.prototype.clearNames = function (e) {
+	      this.names.has(e) && this.names.get(e).clear();
+	    }, e.prototype.clearRules = function (e) {
+	      this.getTag().clearGroup(ge(e)), this.clearNames(e);
+	    }, e.prototype.clearTag = function () {
+	      this.tag = void 0;
+	    }, e;
+	  }(),
+	  Te = /&/g,
+	  ke = /^\s*\/\/.*$/gm;
+	function je(e, t) {
+	  return e.map(function (e) {
+	    return "rule" === e.type && (e.value = "".concat(t, " ").concat(e.value), e.value = e.value.replaceAll(",", ",".concat(t, " ")), e.props = e.props.map(function (e) {
+	      return "".concat(t, " ").concat(e);
+	    })), Array.isArray(e.children) && "@keyframes" !== e.type && (e.children = je(e.children, t)), e;
+	  });
+	}
+	function xe(e) {
+	  var t,
+	    n,
+	    o,
+	    r = void 0 === e ? C : e,
+	    s = r.options,
+	    i = void 0 === s ? C : s,
+	    a = r.plugins,
+	    c = void 0 === a ? _ : a,
+	    l = function (e, o, r) {
+	      return r === n || r.startsWith(n) && r.endsWith(n) && r.replaceAll(n, "").length > 0 ? ".".concat(t) : e;
+	    },
+	    u = c.slice();
+	  u.push(function (e) {
+	    e.type === RULESET && e.value.includes("&") && (e.props[0] = e.props[0].replace(Te, n).replace(o, l));
+	  }), i.prefix && u.push(prefixer), u.push(stringify);
+	  var p = function (e, r, s, a) {
+	    void 0 === r && (r = ""), void 0 === s && (s = ""), void 0 === a && (a = "&"), t = a, n = r, o = new RegExp("\\".concat(n, "\\b"), "g");
+	    var c = e.replace(ke, ""),
+	      l = compile(s || r ? "".concat(s, " ").concat(r, " { ").concat(c, " }") : c);
+	    i.namespace && (l = je(l, i.namespace));
+	    var p = [];
+	    return serialize(l, middleware(u.concat(rulesheet(function (e) {
+	      return p.push(e);
+	    })))), p;
+	  };
+	  return p.hash = c.length ? c.reduce(function (e, t) {
+	    return t.name || he(15), M(e, t.name);
+	  }, F).toString() : "", p;
+	}
+	var Ve = new Re(),
+	  Fe = xe(),
+	  Me = /*#__PURE__*/React.createContext({
+	    shouldForwardProp: void 0,
+	    styleSheet: Ve,
+	    stylis: Fe
+	  });
+	  Me.Consumer;
+	function Be() {
+	  return reactExports.useContext(Me);
+	}
+	var Ge = function () {
+	    function e(e, t) {
+	      var n = this;
+	      this.inject = function (e, t) {
+	        void 0 === t && (t = Fe);
+	        var o = n.name + t.hash;
+	        e.hasNameForId(n.id, o) || e.insertRules(n.id, o, t(n.rules, o, "@keyframes"));
+	      }, this.name = e, this.id = "sc-keyframes-".concat(e), this.rules = t, ue(this, function () {
+	        throw he(12, String(n.name));
+	      });
+	    }
+	    return e.prototype.getName = function (e) {
+	      return void 0 === e && (e = Fe), this.name + e.hash;
+	    }, e;
+	  }(),
+	  Ye = function (e) {
+	    return e >= "A" && e <= "Z";
+	  };
+	function qe(e) {
+	  for (var t = "", n = 0; n < e.length; n++) {
+	    var o = e[n];
+	    if (1 === n && "-" === o && "-" === e[0]) return e;
+	    Ye(o) ? t += "-" + o.toLowerCase() : t += o;
+	  }
+	  return t.startsWith("ms-") ? "-" + t : t;
+	}
+	var We = function (e) {
+	    return null == e || !1 === e || "" === e;
+	  },
+	  He = function (t) {
+	    var n,
+	      o,
+	      r = [];
+	    for (var s in t) {
+	      var i = t[s];
+	      t.hasOwnProperty(s) && !We(i) && (Array.isArray(i) && i.isCss || re(i) ? r.push("".concat(qe(s), ":"), i, ";") : ce(i) ? r.push.apply(r, __spreadArray(__spreadArray(["".concat(s, " {")], He(i), !1), ["}"], !1)) : r.push("".concat(qe(s), ": ").concat((n = s, null == (o = i) || "boolean" == typeof o || "" === o ? "" : "number" != typeof o || 0 === o || n in unitlessKeys || n.startsWith("--") ? String(o).trim() : "".concat(o, "px")), ";")));
+	    }
+	    return r;
+	  };
+	function Ue(e, t, n, o) {
+	  if (We(e)) return [];
+	  if (se(e)) return [".".concat(e.styledComponentId)];
+	  if (re(e)) {
+	    if (!re(s = e) || s.prototype && s.prototype.isReactComponent || !t) return [e];
+	    var r = e(t);
+	    return "object" != typeof r || Array.isArray(r) || r instanceof Ge || ce(r) || null === r || console.error("".concat(B(e), " is not a styled component and cannot be referred to via component selector. See https://www.styled-components.com/docs/advanced#referring-to-other-components for more details.")), Ue(r, t, n, o);
+	  }
+	  var s;
+	  return e instanceof Ge ? n ? (e.inject(n, o), [e.getName(o)]) : [e] : ce(e) ? He(e) : Array.isArray(e) ? Array.prototype.concat.apply(_, e.map(function (e) {
+	    return Ue(e, t, n, o);
+	  })) : [e.toString()];
+	}
+	var Xe = z(v),
+	  Ze = function () {
+	    function e(e, t, n) {
+	      this.rules = e, this.staticRulesId = "", this.isStatic = "production" === "development"  , this.componentId = t, this.baseHash = M(Xe, t), this.baseStyle = n, Re.registerId(t);
+	    }
+	    return e.prototype.generateAndInjectStyles = function (e, t, n) {
+	      var o = this.baseStyle ? this.baseStyle.generateAndInjectStyles(e, t, n) : "";
+	      if (this.isStatic && !n.hash) {
+	        if (this.staticRulesId && t.hasNameForId(this.componentId, this.staticRulesId)) o = ie(o, this.staticRulesId);else {
+	          var r = ae(Ue(this.rules, e, t, n)),
+	            s = x(M(this.baseHash, r) >>> 0);
+	          if (!t.hasNameForId(this.componentId, s)) {
+	            var i = n(r, ".".concat(s), void 0, this.componentId);
+	            t.insertRules(this.componentId, s, i);
+	          }
+	          o = ie(o, s), this.staticRulesId = s;
+	        }
+	      } else {
+	        for (var a = M(this.baseHash, n.hash), c = "", l = 0; l < this.rules.length; l++) {
+	          var u = this.rules[l];
+	          if ("string" == typeof u) c += u, (a = M(a, u));else if (u) {
+	            var p = ae(Ue(u, e, t, n));
+	            a = M(a, p + l), c += p;
+	          }
+	        }
+	        if (c) {
+	          var d = x(a >>> 0);
+	          t.hasNameForId(this.componentId, d) || t.insertRules(this.componentId, d, n(c, ".".concat(d), void 0, this.componentId)), o = ie(o, d);
+	        }
+	      }
+	      return o;
+	    }, e;
+	  }(),
+	  Ke = /*#__PURE__*/React.createContext(void 0);
+	  Ke.Consumer;
+	var nt = {},
+	  ot = new Set();
+	function rt(e, r, s) {
+	  var i = se(e),
+	    a = e,
+	    c = !L(e),
+	    p = r.attrs,
+	    d = void 0 === p ? _ : p,
+	    h = r.componentId,
+	    f = void 0 === h ? function (e, t) {
+	      var n = "string" != typeof e ? "sc" : R(e);
+	      nt[n] = (nt[n] || 0) + 1;
+	      var o = "".concat(n, "-").concat($(v + n + nt[n]));
+	      return t ? "".concat(t, "-").concat(o) : o;
+	    }(r.displayName, r.parentComponentId) : h,
+	    m = r.displayName,
+	    y = void 0 === m ? function (e) {
+	      return L(e) ? "styled.".concat(e) : "Styled(".concat(B(e), ")");
+	    }(e) : m,
+	    g = r.displayName && r.componentId ? "".concat(R(r.displayName), "-").concat(r.componentId) : r.componentId || f,
+	    S = i && a.attrs ? a.attrs.concat(d).filter(Boolean) : d,
+	    w = r.shouldForwardProp;
+	  if (i && a.shouldForwardProp) {
+	    var b = a.shouldForwardProp;
+	    if (r.shouldForwardProp) {
+	      var E = r.shouldForwardProp;
+	      w = function (e, t) {
+	        return b(e, t) && E(e, t);
+	      };
+	    } else w = b;
+	  }
+	  var N = new Ze(s, g, i ? a.componentStyle : void 0);
+	  function O(e, r) {
+	    return function (e, r, s) {
+	      var i = e.attrs,
+	        a = e.componentStyle,
+	        c = e.defaultProps,
+	        p = e.foldedComponentIds,
+	        d = e.styledComponentId,
+	        h = e.target,
+	        f = React.useContext(Ke),
+	        m = Be(),
+	        y = e.shouldForwardProp || m.shouldForwardProp;
+	      reactExports.useDebugValue(d);
+	      var v = function (e, n, o) {
+	          for (var r, s = __assign(__assign({}, n), {
+	              className: void 0,
+	              theme: o
+	            }), i = 0; i < e.length; i += 1) {
+	            var a = re(r = e[i]) ? r(s) : r;
+	            for (var c in a) s[c] = "className" === c ? ie(s[c], a[c]) : "style" === c ? __assign(__assign({}, s[c]), a[c]) : a[c];
+	          }
+	          return n.className && (s.className = ie(s.className, n.className)), s;
+	        }(i, r, I(r, f, c) || C),
+	        g = v.as || h,
+	        S = {};
+	      for (var w in v) void 0 === v[w] || "$" === w[0] || "as" === w || "theme" === w || ("forwardedAs" === w ? S.as = v.forwardedAs : y && !y(w, g) || (S[w] = v[w], y || "development" !== "development" || isPropValid(w) || ot.has(w) || !A.has(g) || (ot.add(w), console.warn('styled-components: it looks like an unknown prop "'.concat(w, '" is being sent through to the DOM, which will likely trigger a React console error. If you would like automatic filtering of unknown props, you can opt-into that behavior via `<StyleSheetManager shouldForwardProp={...}>` (connect an API like `@emotion/is-prop-valid`) or consider using transient props (`$` prefix for automatic filtering.)')))));
+	      var b = function (e, t) {
+	        var n = Be(),
+	          o = e.generateAndInjectStyles(t, n.styleSheet, n.stylis);
+	        return reactExports.useDebugValue(o), o;
+	      }(a, v);
+	      e.warnTooManyClasses && e.warnTooManyClasses(b);
+	      var E = ie(p, d);
+	      return b && (E += " " + b), v.className && (E += " " + v.className), S[L(g) && !A.has(g) ? "class" : "className"] = E, S.ref = s, /*#__PURE__*/reactExports.createElement(g, S);
+	    }(D, e, r);
+	  }
+	  O.displayName = y;
+	  var D = /*#__PURE__*/React.forwardRef(O);
+	  return D.attrs = S, D.componentStyle = N, D.displayName = y, D.shouldForwardProp = w, D.foldedComponentIds = i ? ie(a.foldedComponentIds, a.styledComponentId) : "", D.styledComponentId = g, D.target = i ? a.target : e, Object.defineProperty(D, "defaultProps", {
+	    get: function () {
+	      return this._foldedDefaultProps;
+	    },
+	    set: function (e) {
+	      this._foldedDefaultProps = i ? function (e) {
+	        for (var t = [], n = 1; n < arguments.length; n++) t[n - 1] = arguments[n];
+	        for (var o = 0, r = t; o < r.length; o++) le(e, r[o], !0);
+	        return e;
+	      }({}, a.defaultProps, e) : e;
+	    }
+	  }), (P(y, g), D.warnTooManyClasses = function (e, t) {
+	    var n = {},
+	      o = !1;
+	    return function (r) {
+	      if (!o && (n[r] = !0, Object.keys(n).length >= 200)) {
+	        var s = t ? ' with the id of "'.concat(t, '"') : "";
+	        console.warn("Over ".concat(200, " classes were generated for component ").concat(e).concat(s, ".\n") + "Consider using the attrs method, together with a style object for frequently changed styles.\nExample:\n  const Component = styled.div.attrs(props => ({\n    style: {\n      background: props.background,\n    },\n  }))`width: 100%;`\n\n  <Component />"), o = !0, n = {};
+	      }
+	    };
+	  }(y, g)), ue(D, function () {
+	    return ".".concat(D.styledComponentId);
+	  }), c && oe(D, e, {
+	    attrs: !0,
+	    componentStyle: !0,
+	    displayName: !0,
+	    foldedComponentIds: !0,
+	    shouldForwardProp: !0,
+	    styledComponentId: !0,
+	    target: !0
+	  }), D;
+	}
+	function st(e, t) {
+	  for (var n = [e[0]], o = 0, r = t.length; o < r; o += 1) n.push(t[o], e[o + 1]);
+	  return n;
+	}
+	var it = function (e) {
+	  return Object.assign(e, {
+	    isCss: !0
+	  });
+	};
+	function at(t) {
+	  for (var n = [], o = 1; o < arguments.length; o++) n[o - 1] = arguments[o];
+	  if (re(t) || ce(t)) return it(Ue(st(_, __spreadArray([t], n, !0))));
+	  var r = t;
+	  return 0 === n.length && 1 === r.length && "string" == typeof r[0] ? Ue(r) : it(Ue(st(r, n)));
+	}
+	function ct(n, o, r) {
+	  if (void 0 === r && (r = C), !o) throw he(1, o);
+	  var s = function (t) {
+	    for (var s = [], i = 1; i < arguments.length; i++) s[i - 1] = arguments[i];
+	    return n(o, r, at.apply(void 0, __spreadArray([t], s, !1)));
+	  };
+	  return s.attrs = function (e) {
+	    return ct(n, o, __assign(__assign({}, r), {
+	      attrs: Array.prototype.concat(r.attrs, e).filter(Boolean)
+	    }));
+	  }, s.withConfig = function (e) {
+	    return ct(n, o, __assign(__assign({}, r), e));
+	  }, s;
+	}
+	var lt = function (e) {
+	    return ct(rt, e);
+	  },
+	  ut = lt;
+	A.forEach(function (e) {
+	  ut[e] = lt(e);
+	});
+	function ht(t) {
+	  for (var n = [], o = 1; o < arguments.length; o++) n[o - 1] = arguments[o];
+	  "undefined" != typeof navigator && "ReactNative" === navigator.product && console.warn("`keyframes` cannot be used on ReactNative, only on the web. To do animation in ReactNative please use Animated.");
+	  var r = ae(at.apply(void 0, __spreadArray([t], n, !1))),
+	    s = $(r);
+	  return new Ge(s, r);
+	}
+	"undefined" != typeof navigator && "ReactNative" === navigator.product && console.warn("It looks like you've imported 'styled-components' on React Native.\nPerhaps you're looking to import 'styled-components/native'?\nRead more about this at https://www.styled-components.com/docs/basics#react-native");
+	var gt = "__sc-".concat(f, "__");
+	"undefined" != typeof window && (window[gt] || (window[gt] = 0), 1 === window[gt] && console.warn("It looks like there are several instances of 'styled-components' initialized in this application. This may cause dynamic styles to not render properly, errors during the rehydration process, a missing theme prop, and makes your application bigger without good reason.\n\nSee https://s-c.sh/2BAXzed for more info."), window[gt] += 1);
+
+	const $b2e137848b48cf4f$export$6bfda33bcd6c2d18 = {
+	  "aria-busy": true,
+	  role: "progressbar"
+	};
+	(ut).div`
+  display: ${props => props.$visible ? "flex" : "none"};
+`;
+	const $6df955197a15d9f8$export$98a285aab16ab26c = "http://www.w3.org/2000/svg";
+	const $c21a6e98dcf01e35$var$len = 242.776657104492;
+	const $c21a6e98dcf01e35$var$time = 1.6;
+	const $c21a6e98dcf01e35$var$anim = (ht)`
+  12.5% {
+    stroke-dasharray: ${$c21a6e98dcf01e35$var$len * 0.14}px, ${$c21a6e98dcf01e35$var$len}px;
+    stroke-dashoffset: -${$c21a6e98dcf01e35$var$len * 0.11}px;
+  }
+  43.75% {
+    stroke-dasharray: ${$c21a6e98dcf01e35$var$len * 0.35}px, ${$c21a6e98dcf01e35$var$len}px;
+    stroke-dashoffset: -${$c21a6e98dcf01e35$var$len * 0.35}px;
+  }
+  100% {
+    stroke-dasharray: ${$c21a6e98dcf01e35$var$len * 0.01}px, ${$c21a6e98dcf01e35$var$len}px;
+    stroke-dashoffset: -${$c21a6e98dcf01e35$var$len * 0.99}px;
+  }
+`;
+	(ut).path`
+  stroke-dasharray: ${$c21a6e98dcf01e35$var$len * 0.01}px, ${$c21a6e98dcf01e35$var$len};
+  stroke-dashoffset: 0;
+  animation: ${$c21a6e98dcf01e35$var$anim} ${$c21a6e98dcf01e35$var$time}s linear infinite;
+`;
+	const $580a8839b3aeeb57$var$spin = (ht)`
+ to {
+    transform: rotate(360deg);
+  }
+`;
+	(ut).svg`
+  animation: ${$580a8839b3aeeb57$var$spin} 0.75s steps(12, end) infinite;
+  animation-duration: 0.75s;
+`;
+	(ut).polyline`
+  stroke-width: ${props => props.width}px;
+  stroke-linecap: round;
+
+  &:nth-child(12n + 0) {
+    stroke-opacity: 0.08;
+  }
+
+  &:nth-child(12n + 1) {
+    stroke-opacity: 0.17;
+  }
+
+  &:nth-child(12n + 2) {
+    stroke-opacity: 0.25;
+  }
+
+  &:nth-child(12n + 3) {
+    stroke-opacity: 0.33;
+  }
+
+  &:nth-child(12n + 4) {
+    stroke-opacity: 0.42;
+  }
+
+  &:nth-child(12n + 5) {
+    stroke-opacity: 0.5;
+  }
+
+  &:nth-child(12n + 6) {
+    stroke-opacity: 0.58;
+  }
+
+  &:nth-child(12n + 7) {
+    stroke-opacity: 0.66;
+  }
+
+  &:nth-child(12n + 8) {
+    stroke-opacity: 0.75;
+  }
+
+  &:nth-child(12n + 9) {
+    stroke-opacity: 0.83;
+  }
+
+  &:nth-child(12n + 11) {
+    stroke-opacity: 0.92;
+  }
+`;
+
+	/** Styles */
+	const $a3da544072ffb3af$var$dash = (ht)`
+ to {
+    stroke-dashoffset: 136;
+  }
+`;
+	(ut).polygon`
+  stroke-dasharray: 17;
+  animation: ${$a3da544072ffb3af$var$dash} 2.5s cubic-bezier(0.35, 0.04, 0.63, 0.95) infinite;
+`;
+	(ut).svg`
+  transform-origin: 50% 65%;
+`;
+	const $e28c1af960094573$export$bdf537af43a20db5 = ({
+	  visible = true,
+	  height = "80",
+	  width = "80",
+	  wrapperClass = "",
+	  wrapperStyle = {},
+	  ariaLabel = "magnifying-glass-loading",
+	  glassColor = "#c0efff",
+	  color = "#e15b64"
+	}) => {
+	  return !visible ? null : /*#__PURE__*/(jsxRuntimeExports.jsx)("svg", {
+	    width: width,
+	    height: height,
+	    xmlns: ($6df955197a15d9f8$export$98a285aab16ab26c),
+	    viewBox: "0 0 100 100",
+	    preserveAspectRatio: "xMidYMid",
+	    className: wrapperClass,
+	    style: wrapperStyle,
+	    "aria-label": ariaLabel,
+	    "data-testid": "magnifying-glass-svg",
+	    ...($b2e137848b48cf4f$export$6bfda33bcd6c2d18),
+	    children: /*#__PURE__*/(jsxRuntimeExports.jsx)("g", {
+	      transform: "translate(50,50)",
+	      children: /*#__PURE__*/(jsxRuntimeExports.jsx)("g", {
+	        transform: "scale(0.82)",
+	        children: /*#__PURE__*/(jsxRuntimeExports.jsx)("g", {
+	          transform: "translate(-50,-50)",
+	          children: /*#__PURE__*/(jsxRuntimeExports.jsxs)("g", {
+	            transform: "translate(16.3636 -20)",
+	            children: [/*#__PURE__*/(jsxRuntimeExports.jsx)("animateTransform", {
+	              attributeName: "transform",
+	              type: "translate",
+	              calcMode: "linear",
+	              values: "-20 -20;20 -20;0 20;-20 -20",
+	              keyTimes: "0;0.33;0.66;1",
+	              dur: "1s",
+	              begin: "0s",
+	              repeatCount: "indefinite"
+	            }), /*#__PURE__*/(jsxRuntimeExports.jsx)("path", {
+	              d: "M44.19,26.158c-4.817,0-9.345,1.876-12.751,5.282c-3.406,3.406-5.282,7.934-5.282,12.751 c0,4.817,1.876,9.345,5.282,12.751c3.406,3.406,7.934,5.282,12.751,5.282s9.345-1.876,12.751-5.282 c3.406-3.406,5.282-7.934,5.282-12.751c0-4.817-1.876-9.345-5.282-12.751C53.536,28.033,49.007,26.158,44.19,26.158z",
+	              fill: glassColor
+	            }), /*#__PURE__*/(jsxRuntimeExports.jsx)("path", {
+	              d: "M78.712,72.492L67.593,61.373l-3.475-3.475c1.621-2.352,2.779-4.926,3.475-7.596c1.044-4.008,1.044-8.23,0-12.238 c-1.048-4.022-3.146-7.827-6.297-10.979C56.572,22.362,50.381,20,44.19,20C38,20,31.809,22.362,27.085,27.085 c-9.447,9.447-9.447,24.763,0,34.21C31.809,66.019,38,68.381,44.19,68.381c4.798,0,9.593-1.425,13.708-4.262l9.695,9.695 l4.899,4.899C73.351,79.571,74.476,80,75.602,80s2.251-0.429,3.11-1.288C80.429,76.994,80.429,74.209,78.712,72.492z M56.942,56.942 c-3.406,3.406-7.934,5.282-12.751,5.282s-9.345-1.876-12.751-5.282c-3.406-3.406-5.282-7.934-5.282-12.751 c0-4.817,1.876-9.345,5.282-12.751c3.406-3.406,7.934-5.282,12.751-5.282c4.817,0,9.345,1.876,12.751,5.282 c3.406,3.406,5.282,7.934,5.282,12.751C62.223,49.007,60.347,53.536,56.942,56.942z",
+	              fill: color
+	            })]
+	          })
+	        })
+	      })
+	    })
+	  });
+	};
+
+	var Oeuvre = function Oeuvre(_ref) {
+	  var imageSrc = _ref.imageSrc,
+	    title = _ref.title,
+	    dateCreation = _ref.dateCreation,
+	    prix = _ref.prix,
+	    id = _ref.id;
+	  return /*#__PURE__*/React.createElement("div", {
+	    className: "oeuvre-card"
+	  }, /*#__PURE__*/React.createElement(Link, {
+	    to: "/oeuvre/".concat(id),
+	    className: "custom-link"
+	  }, /*#__PURE__*/React.createElement("img", {
+	    src: imageSrc,
+	    alt: "Oeuvre d'art",
+	    className: "oeuvre-image"
+	  }), /*#__PURE__*/React.createElement("div", {
+	    className: "oeuvre-details"
+	  }, /*#__PURE__*/React.createElement("h2", null, title), /*#__PURE__*/React.createElement("p", null, "Date de cr\xE9ation : ", dateCreation), /*#__PURE__*/React.createElement("p", null, "Prix : ", prix))));
+	};
+
+	var oeuvres = [
+		{
+			periode: "Renaissance",
+			id: "kq3090m5aol",
+			categories: "p1",
+			titre: "La Joconde",
+			artiste: "Leonardo da Vinci",
+			date: "1503-1506",
+			prix: 1000000,
+			image: "../images/renaissance/peinture/rp1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Renaissance",
+			id: "kq3090m89a",
+			categories: "p1",
+			titre: "La Naissance de Vénus",
+			artiste: "Sandro Botticelli",
+			date: "1484-1486",
+			prix: 900000,
+			image: "../images/renaissance/peinture/rp2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq30907643a",
+			categories: "p1",
+			titre: "La Cène",
+			artiste: "Leonardo da Vinci",
+			date: "1495-1498",
+			prix: 1200000,
+			image: "../images/renaissance/peinture/rp3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq309234a",
+			categories: "p1",
+			titre: "La Primavera",
+			artiste: "Sandro Botticelli",
+			date: "1477-1482",
+			prix: 850000,
+			image: "../images/renaissance/peinture/rp4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq30902ZED5a",
+			categories: "p1",
+			titre: "L'Homme de Vitruve",
+			artiste: "Leonardo da Vinci",
+			date: "1490",
+			prix: 1100000,
+			image: "../images/renaissance/peinture/rp5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq3090m5asd",
+			categories: "s1",
+			titre: "David",
+			artiste: "Michel-Ange",
+			date: "1501-1504",
+			prix: 800000,
+			image: "../images/renaissance/sculpture/rs1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Renaissance",
+			id: "kq30965Gm5a",
+			categories: "s1",
+			titre: "La Pieta",
+			artiste: "Michel-Ange",
+			date: "1498-1499",
+			prix: 950000,
+			image: "../images/renaissance/sculpture/rs2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq3090mJJKa",
+			categories: "s1",
+			titre: "Bacchus",
+			artiste: "Michel-Ange",
+			date: "1496-1497",
+			prix: 700000,
+			image: "../images/renaissance/sculpture/rs3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq309JDJHa",
+			categories: "s1",
+			titre: "Les Esclaves",
+			artiste: "Michel-Ange",
+			date: "1513-1534",
+			prix: 900000,
+			image: "../images/renaissance/sculpture/rs4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Renaissance",
+			id: "kq5409JDJHa",
+			categories: "s1",
+			titre: "Mercure",
+			artiste: "Giambologna",
+			date: "1580",
+			prix: 850000,
+			image: "../images/renaissance/sculpture/rs5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqsa",
+			categories: "p1",
+			titre: "Les Ménines",
+			artiste: "Diego Velázquez",
+			date: "1656",
+			prix: 1000000,
+			image: "../images/baroque/peinture/bp1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Baroque",
+			id: "kqsz5a",
+			categories: "p1",
+			titre: "La Leçon d'anatomie du docteur Tulp",
+			artiste: "Rembrandt",
+			date: "1632",
+			prix: 900000,
+			image: "../images/baroque/peinture/bp2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqszaa5a",
+			categories: "p1",
+			titre: "La Jeune Fille à la perle",
+			artiste: "Johannes Vermeer",
+			date: "1665",
+			prix: 1200000,
+			image: "../images/baroque/peinture/bp3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqsz5a0",
+			categories: "p1",
+			titre: "La Ronde de nuit",
+			artiste: "Rembrandt",
+			date: "1642",
+			prix: 850000,
+			image: "../images/baroque/peinture/bp4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqsz5ki0",
+			categories: "p1",
+			titre: "La Laitière",
+			artiste: "Johannes Vermeer",
+			date: "1658",
+			prix: 1100000,
+			image: "../images/baroque/peinture/bp5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqszopm5a",
+			categories: "s1",
+			titre: "Le Bernin",
+			artiste: "Le Bernin",
+			date: "1623-1624",
+			prix: 800000,
+			image: "../images/baroque/sculpture/bs1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Baroque",
+			id: "kqszzz5a",
+			categories: "s1",
+			titre: "Le Bernin",
+			artiste: "Le Bernin",
+			date: "1622-1625",
+			prix: 950000,
+			image: "../images/baroque/sculpture/bs2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqopm5a",
+			categories: "s1",
+			titre: "Le Bernin",
+			artiste: "Le Bernin",
+			date: "1622-1625",
+			prix: 700000,
+			image: "../images/baroque/sculpture/bs3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Baroque",
+			id: "kqszop4m5a",
+			categories: "s1",
+			titre: "Le Bernin",
+			artiste: "Le Bernin",
+			date: "1622-1625",
+			image: "../images/baroque/sculpture/bs4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3o0m5a",
+			categories: "p1",
+			titre: "L'Éscarpolette",
+			artiste: "Jean-Honoré Fragonard",
+			date: "1767",
+			prix: 1200000,
+			image: "../images/rococo/peinture/rp1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Rococo",
+			id: "kq54o0m5a",
+			categories: "p1",
+			titre: "La Leçon de musique",
+			artiste: "Jean-Antoine Watteau",
+			date: "1719",
+			prix: 900000,
+			image: "../images/rococo/peinture/rp2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq20o0m5a",
+			categories: "p1",
+			titre: "Le Verrou",
+			artiste: "Jean-Honoré Fragonard",
+			date: "1777",
+			prix: 1100000,
+			image: "../images/rococo/peinture/rp3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "k2PM3o0m5a",
+			categories: "p1",
+			titre: "Le Retour de pêche",
+			artiste: "François Boucher",
+			date: "1732",
+			prix: 950000,
+			image: "../images/rococo/peinture/rp4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3oytbm5a",
+			categories: "p1",
+			titre: "L'Amour menaçant",
+			artiste: "Jean-Honoré Fragonard",
+			date: "1770",
+			prix: 850000,
+			image: "../images/rococo/peinture/rp5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3o0m3a",
+			categories: "s1",
+			titre: "Cupidon endormi",
+			artiste: "Étienne Maurice Falconet",
+			date: "1757",
+			prix: 950000,
+			image: "../images/rococo/sculpture/rs1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Rococo",
+			id: "k13o0m5a",
+			categories: "s1",
+			titre: "Le Baiser",
+			artiste: "Auguste Rodin",
+			date: "1886",
+			prix: 1200000,
+			image: "../images/rococo/sculpture/rs2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3o2m5a",
+			categories: "s1",
+			titre: "Vénus de Milo",
+			artiste: "Alexandros de Antioch",
+			date: "100 av. J.-C.",
+			prix: 2000000,
+			image: "../images/rococo/sculpture/rs3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3o12m5a",
+			categories: "s1",
+			titre: "Cupidon et Psyché",
+			artiste: "Antonio Canova",
+			date: "1787",
+			prix: 1050000,
+			image: "../images/rococo/sculpture/rs4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Rococo",
+			id: "kq3o0m78a",
+			categories: "s1",
+			titre: "Amour captif",
+			artiste: "Théodore Géricault",
+			date: "1817",
+			prix: 1100000,
+			image: "../images/rococo/sculpture/rs5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kqsz00pm5a",
+			categories: "p1",
+			titre: "Le Sacre de Napoléon",
+			artiste: "Jacques-Louis David",
+			date: "1805-1807",
+			prix: 1300000,
+			image: "../images/classicisme/peinture/cp1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Classicisme",
+			id: "kqsz00p35a",
+			categories: "p1",
+			titre: "Portrait de Madame Récamier",
+			artiste: "Jacques-Louis David",
+			date: "1800",
+			prix: 950000,
+			image: "../images/classicisme/peinture/cp2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kq2z00pm5a",
+			categories: "p1",
+			titre: "Le Serment des Horaces",
+			artiste: "Jacques-Louis David",
+			date: "1784",
+			prix: 1100000,
+			image: "../images/classicisme/peinture/cp3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kqsz07pm5a",
+			categories: "p1",
+			titre: "La Mort de Sardanapale",
+			artiste: "Eugène Delacroix",
+			date: "1827",
+			prix: 1150000,
+			image: "../images/classicisme/peinture/cp4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kqs300pm5a",
+			categories: "p1",
+			titre: "La Liberté guidant le peuple",
+			artiste: "Eugène Delacroix",
+			date: "1830",
+			prix: 1200000,
+			image: "../images/classicisme/peinture/cp5.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kq3o0m5a",
+			categories: "s1",
+			titre: "Le Premier Consul Bonaparte",
+			artiste: "Antonio Canova",
+			date: "1802-1806",
+			prix: 1000000,
+			image: "../images/classicisme/sculpture/cs1.jpg",
+			nouveau: true
+		},
+		{
+			periode: "Classicisme",
+			id: "kq3o0m5a",
+			categories: "s1",
+			titre: "Apollon et Daphné",
+			artiste: "Gian Lorenzo Bernini",
+			date: "1622-1625",
+			prix: 950000,
+			image: "../images/classicisme/sculpture/cs2.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kq3o0m5a",
+			categories: "s1",
+			titre: "Psyche Revived by Cupid's Kiss",
+			artiste: "Antonio Canova",
+			date: "1787-1793",
+			prix: 1100000,
+			image: "../images/classicisme/sculpture/cs3.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kq3o0mUa",
+			categories: "s1",
+			titre: "La Victoire de Samothrace",
+			artiste: "Inconnu",
+			date: "190 av. J.-C.",
+			prix: 1200000,
+			image: "../images/classicisme/sculpture/cs4.jpg",
+			nouveau: false
+		},
+		{
+			periode: "Classicisme",
+			id: "kq3o0m&a",
+			categories: "s1",
+			titre: "Laocoon et ses fils",
+			artiste: "Agesandros, Polydoros, Athanadoros de Rhodes",
+			date: "1er siècle av. J.-C.",
+			prix: 1250000,
+			image: "../images/classicisme/sculpture/cs5.jpg",
+			nouveau: false
+		}
+	];
+	var data = {
+		oeuvres: oeuvres
+	};
+
+	var Oeuvres = function Oeuvres() {
+	  var _useState = reactExports.useState([]),
+	    _useState2 = _slicedToArray(_useState, 2),
+	    oeuvres = _useState2[0],
+	    setOeuvres = _useState2[1];
+	  var _useState3 = reactExports.useState(true),
+	    _useState4 = _slicedToArray(_useState3, 2),
+	    isLoading = _useState4[0],
+	    setIsLoading = _useState4[1];
+	  reactExports.useEffect(function () {
+	    var fetchData = /*#__PURE__*/function () {
+	      var _ref = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
+	        var defaultOeuvres, _iterator, _step, oeuvre, flattenedDefaultOeuvres;
+	        return _regeneratorRuntime().wrap(function _callee$(_context) {
+	          while (1) switch (_context.prev = _context.next) {
+	            case 0:
+	              try {
+	                defaultOeuvres = {};
+	                _iterator = _createForOfIteratorHelper(data.oeuvres);
+	                try {
+	                  for (_iterator.s(); !(_step = _iterator.n()).done;) {
+	                    oeuvre = _step.value;
+	                    // Check if the period is already added to the defaultOeuvres
+	                    if (!defaultOeuvres[oeuvre.periode]) {
+	                      defaultOeuvres[oeuvre.periode] = [];
+	                    }
+	                    if (defaultOeuvres[oeuvre.periode].length < 3) {
+	                      defaultOeuvres[oeuvre.periode].push(_objectSpread2({}, oeuvre));
+	                    }
+	                  }
+
+	                  // Flatten the defaultOeuvres object into an array
+	                } catch (err) {
+	                  _iterator.e(err);
+	                } finally {
+	                  _iterator.f();
+	                }
+	                flattenedDefaultOeuvres = Object.values(defaultOeuvres).flat();
+	                setOeuvres(flattenedDefaultOeuvres);
+	                setIsLoading(false);
+	              } catch (error) {
+	                console.error("Erreur lors du chargement des données:", error);
+	              }
+	            case 1:
+	            case "end":
+	              return _context.stop();
+	          }
+	        }, _callee);
+	      }));
+	      return function fetchData() {
+	        return _ref.apply(this, arguments);
+	      };
+	    }();
+	    fetchData();
+	  }, []);
+	  console.log("oeuvres", oeuvres);
+	  return /*#__PURE__*/React.createElement("div", {
+	    className: "container"
+	  }, isLoading && /*#__PURE__*/React.createElement($e28c1af960094573$export$bdf537af43a20db5, {
+	    visible: true,
+	    height: "100",
+	    width: "100",
+	    ariaLabel: "magnifying-glass-loading",
+	    wrapperStyle: {},
+	    wrapperClass: "magnifying-glass-wrapper",
+	    glassColor: "#c0efff",
+	    color: "#e15b64"
+	  }), /*#__PURE__*/React.createElement("div", {
+	    className: "oeuvres-container"
+	  }, oeuvres === null || oeuvres === void 0 ? void 0 : oeuvres.map(function (oeuvre) {
+	    return /*#__PURE__*/React.createElement(Oeuvre, {
+	      key: oeuvre.id,
+	      imageSrc: oeuvre.image,
+	      title: oeuvre.titre,
+	      dateCreation: oeuvre.date,
+	      prix: oeuvre.prix,
+	      periode: oeuvre.periode,
+	      id: oeuvre.id
+	    });
+	  })));
+	};
+
 	var Accueil = function Accueil() {
-	  return /*#__PURE__*/React.createElement("div", null, "Accueil");
+	  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Oeuvres, null));
+	};
+
+	var lib = {};
+
+	var slider = {};
+
+	var innerSlider = {};
+
+	var initialState = {};
+
+	(function (exports) {
+
+		Object.defineProperty(exports, "__esModule", {
+		  value: true
+		});
+		exports["default"] = void 0;
+		var initialState = {
+		  animating: false,
+		  autoplaying: null,
+		  currentDirection: 0,
+		  currentLeft: null,
+		  currentSlide: 0,
+		  direction: 1,
+		  dragging: false,
+		  edgeDragged: false,
+		  initialized: false,
+		  lazyLoadedList: [],
+		  listHeight: null,
+		  listWidth: null,
+		  scrolling: false,
+		  slideCount: null,
+		  slideHeight: null,
+		  slideWidth: null,
+		  swipeLeft: null,
+		  swiped: false,
+		  // used by swipeEvent. differentites between touch and swipe.
+		  swiping: false,
+		  touchObject: {
+		    startX: 0,
+		    startY: 0,
+		    curX: 0,
+		    curY: 0
+		  },
+		  trackStyle: {},
+		  trackWidth: 0,
+		  targetSlide: 0
+		};
+		var _default = initialState;
+		exports["default"] = _default; 
+	} (initialState));
+
+	/**
+	 * lodash (Custom Build) <https://lodash.com/>
+	 * Build: `lodash modularize exports="npm" -o ./`
+	 * Copyright jQuery Foundation and other contributors <https://jquery.org/>
+	 * Released under MIT license <https://lodash.com/license>
+	 * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+	 * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+	 */
+
+	/** Used as the `TypeError` message for "Functions" methods. */
+	var FUNC_ERROR_TEXT = 'Expected a function';
+
+	/** Used as references for various `Number` constants. */
+	var NAN = 0 / 0;
+
+	/** `Object#toString` result references. */
+	var symbolTag = '[object Symbol]';
+
+	/** Used to match leading and trailing whitespace. */
+	var reTrim = /^\s+|\s+$/g;
+
+	/** Used to detect bad signed hexadecimal string values. */
+	var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+
+	/** Used to detect binary string values. */
+	var reIsBinary = /^0b[01]+$/i;
+
+	/** Used to detect octal string values. */
+	var reIsOctal = /^0o[0-7]+$/i;
+
+	/** Built-in method references without a dependency on `root`. */
+	var freeParseInt = parseInt;
+
+	/** Detect free variable `global` from Node.js. */
+	var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal && commonjsGlobal.Object === Object && commonjsGlobal;
+
+	/** Detect free variable `self`. */
+	var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
+
+	/** Used as a reference to the global object. */
+	var root = freeGlobal || freeSelf || Function('return this')();
+
+	/** Used for built-in method references. */
+	var objectProto = Object.prototype;
+
+	/**
+	 * Used to resolve the
+	 * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
+	 * of values.
+	 */
+	var objectToString = objectProto.toString;
+
+	/* Built-in method references for those with the same name as other `lodash` methods. */
+	var nativeMax = Math.max,
+	  nativeMin = Math.min;
+
+	/**
+	 * Gets the timestamp of the number of milliseconds that have elapsed since
+	 * the Unix epoch (1 January 1970 00:00:00 UTC).
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 2.4.0
+	 * @category Date
+	 * @returns {number} Returns the timestamp.
+	 * @example
+	 *
+	 * _.defer(function(stamp) {
+	 *   console.log(_.now() - stamp);
+	 * }, _.now());
+	 * // => Logs the number of milliseconds it took for the deferred invocation.
+	 */
+	var now = function () {
+	  return root.Date.now();
+	};
+
+	/**
+	 * Creates a debounced function that delays invoking `func` until after `wait`
+	 * milliseconds have elapsed since the last time the debounced function was
+	 * invoked. The debounced function comes with a `cancel` method to cancel
+	 * delayed `func` invocations and a `flush` method to immediately invoke them.
+	 * Provide `options` to indicate whether `func` should be invoked on the
+	 * leading and/or trailing edge of the `wait` timeout. The `func` is invoked
+	 * with the last arguments provided to the debounced function. Subsequent
+	 * calls to the debounced function return the result of the last `func`
+	 * invocation.
+	 *
+	 * **Note:** If `leading` and `trailing` options are `true`, `func` is
+	 * invoked on the trailing edge of the timeout only if the debounced function
+	 * is invoked more than once during the `wait` timeout.
+	 *
+	 * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
+	 * until to the next tick, similar to `setTimeout` with a timeout of `0`.
+	 *
+	 * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
+	 * for details over the differences between `_.debounce` and `_.throttle`.
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 0.1.0
+	 * @category Function
+	 * @param {Function} func The function to debounce.
+	 * @param {number} [wait=0] The number of milliseconds to delay.
+	 * @param {Object} [options={}] The options object.
+	 * @param {boolean} [options.leading=false]
+	 *  Specify invoking on the leading edge of the timeout.
+	 * @param {number} [options.maxWait]
+	 *  The maximum time `func` is allowed to be delayed before it's invoked.
+	 * @param {boolean} [options.trailing=true]
+	 *  Specify invoking on the trailing edge of the timeout.
+	 * @returns {Function} Returns the new debounced function.
+	 * @example
+	 *
+	 * // Avoid costly calculations while the window size is in flux.
+	 * jQuery(window).on('resize', _.debounce(calculateLayout, 150));
+	 *
+	 * // Invoke `sendMail` when clicked, debouncing subsequent calls.
+	 * jQuery(element).on('click', _.debounce(sendMail, 300, {
+	 *   'leading': true,
+	 *   'trailing': false
+	 * }));
+	 *
+	 * // Ensure `batchLog` is invoked once after 1 second of debounced calls.
+	 * var debounced = _.debounce(batchLog, 250, { 'maxWait': 1000 });
+	 * var source = new EventSource('/stream');
+	 * jQuery(source).on('message', debounced);
+	 *
+	 * // Cancel the trailing debounced invocation.
+	 * jQuery(window).on('popstate', debounced.cancel);
+	 */
+	function debounce(func, wait, options) {
+	  var lastArgs,
+	    lastThis,
+	    maxWait,
+	    result,
+	    timerId,
+	    lastCallTime,
+	    lastInvokeTime = 0,
+	    leading = false,
+	    maxing = false,
+	    trailing = true;
+	  if (typeof func != 'function') {
+	    throw new TypeError(FUNC_ERROR_TEXT);
+	  }
+	  wait = toNumber(wait) || 0;
+	  if (isObject(options)) {
+	    leading = !!options.leading;
+	    maxing = 'maxWait' in options;
+	    maxWait = maxing ? nativeMax(toNumber(options.maxWait) || 0, wait) : maxWait;
+	    trailing = 'trailing' in options ? !!options.trailing : trailing;
+	  }
+	  function invokeFunc(time) {
+	    var args = lastArgs,
+	      thisArg = lastThis;
+	    lastArgs = lastThis = undefined;
+	    lastInvokeTime = time;
+	    result = func.apply(thisArg, args);
+	    return result;
+	  }
+	  function leadingEdge(time) {
+	    // Reset any `maxWait` timer.
+	    lastInvokeTime = time;
+	    // Start the timer for the trailing edge.
+	    timerId = setTimeout(timerExpired, wait);
+	    // Invoke the leading edge.
+	    return leading ? invokeFunc(time) : result;
+	  }
+	  function remainingWait(time) {
+	    var timeSinceLastCall = time - lastCallTime,
+	      timeSinceLastInvoke = time - lastInvokeTime,
+	      result = wait - timeSinceLastCall;
+	    return maxing ? nativeMin(result, maxWait - timeSinceLastInvoke) : result;
+	  }
+	  function shouldInvoke(time) {
+	    var timeSinceLastCall = time - lastCallTime,
+	      timeSinceLastInvoke = time - lastInvokeTime;
+
+	    // Either this is the first call, activity has stopped and we're at the
+	    // trailing edge, the system time has gone backwards and we're treating
+	    // it as the trailing edge, or we've hit the `maxWait` limit.
+	    return lastCallTime === undefined || timeSinceLastCall >= wait || timeSinceLastCall < 0 || maxing && timeSinceLastInvoke >= maxWait;
+	  }
+	  function timerExpired() {
+	    var time = now();
+	    if (shouldInvoke(time)) {
+	      return trailingEdge(time);
+	    }
+	    // Restart the timer.
+	    timerId = setTimeout(timerExpired, remainingWait(time));
+	  }
+	  function trailingEdge(time) {
+	    timerId = undefined;
+
+	    // Only invoke if we have `lastArgs` which means `func` has been
+	    // debounced at least once.
+	    if (trailing && lastArgs) {
+	      return invokeFunc(time);
+	    }
+	    lastArgs = lastThis = undefined;
+	    return result;
+	  }
+	  function cancel() {
+	    if (timerId !== undefined) {
+	      clearTimeout(timerId);
+	    }
+	    lastInvokeTime = 0;
+	    lastArgs = lastCallTime = lastThis = timerId = undefined;
+	  }
+	  function flush() {
+	    return timerId === undefined ? result : trailingEdge(now());
+	  }
+	  function debounced() {
+	    var time = now(),
+	      isInvoking = shouldInvoke(time);
+	    lastArgs = arguments;
+	    lastThis = this;
+	    lastCallTime = time;
+	    if (isInvoking) {
+	      if (timerId === undefined) {
+	        return leadingEdge(lastCallTime);
+	      }
+	      if (maxing) {
+	        // Handle invocations in a tight loop.
+	        timerId = setTimeout(timerExpired, wait);
+	        return invokeFunc(lastCallTime);
+	      }
+	    }
+	    if (timerId === undefined) {
+	      timerId = setTimeout(timerExpired, wait);
+	    }
+	    return result;
+	  }
+	  debounced.cancel = cancel;
+	  debounced.flush = flush;
+	  return debounced;
+	}
+
+	/**
+	 * Checks if `value` is the
+	 * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+	 * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 0.1.0
+	 * @category Lang
+	 * @param {*} value The value to check.
+	 * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+	 * @example
+	 *
+	 * _.isObject({});
+	 * // => true
+	 *
+	 * _.isObject([1, 2, 3]);
+	 * // => true
+	 *
+	 * _.isObject(_.noop);
+	 * // => true
+	 *
+	 * _.isObject(null);
+	 * // => false
+	 */
+	function isObject(value) {
+	  var type = typeof value;
+	  return !!value && (type == 'object' || type == 'function');
+	}
+
+	/**
+	 * Checks if `value` is object-like. A value is object-like if it's not `null`
+	 * and has a `typeof` result of "object".
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 4.0.0
+	 * @category Lang
+	 * @param {*} value The value to check.
+	 * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+	 * @example
+	 *
+	 * _.isObjectLike({});
+	 * // => true
+	 *
+	 * _.isObjectLike([1, 2, 3]);
+	 * // => true
+	 *
+	 * _.isObjectLike(_.noop);
+	 * // => false
+	 *
+	 * _.isObjectLike(null);
+	 * // => false
+	 */
+	function isObjectLike(value) {
+	  return !!value && typeof value == 'object';
+	}
+
+	/**
+	 * Checks if `value` is classified as a `Symbol` primitive or object.
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 4.0.0
+	 * @category Lang
+	 * @param {*} value The value to check.
+	 * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
+	 * @example
+	 *
+	 * _.isSymbol(Symbol.iterator);
+	 * // => true
+	 *
+	 * _.isSymbol('abc');
+	 * // => false
+	 */
+	function isSymbol(value) {
+	  return typeof value == 'symbol' || isObjectLike(value) && objectToString.call(value) == symbolTag;
+	}
+
+	/**
+	 * Converts `value` to a number.
+	 *
+	 * @static
+	 * @memberOf _
+	 * @since 4.0.0
+	 * @category Lang
+	 * @param {*} value The value to process.
+	 * @returns {number} Returns the number.
+	 * @example
+	 *
+	 * _.toNumber(3.2);
+	 * // => 3.2
+	 *
+	 * _.toNumber(Number.MIN_VALUE);
+	 * // => 5e-324
+	 *
+	 * _.toNumber(Infinity);
+	 * // => Infinity
+	 *
+	 * _.toNumber('3.2');
+	 * // => 3.2
+	 */
+	function toNumber(value) {
+	  if (typeof value == 'number') {
+	    return value;
+	  }
+	  if (isSymbol(value)) {
+	    return NAN;
+	  }
+	  if (isObject(value)) {
+	    var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
+	    value = isObject(other) ? other + '' : other;
+	  }
+	  if (typeof value != 'string') {
+	    return value === 0 ? value : +value;
+	  }
+	  value = value.replace(reTrim, '');
+	  var isBinary = reIsBinary.test(value);
+	  return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+	}
+	var lodash_debounce = debounce;
+
+	var classnames = {exports: {}};
+
+	/*!
+		Copyright (c) 2018 Jed Watson.
+		Licensed under the MIT License (MIT), see
+		http://jedwatson.github.io/classnames
+	*/
+	classnames.exports;
+
+	(function (module) {
+		/* global define */
+
+		(function () {
+
+		  var hasOwn = {}.hasOwnProperty;
+		  function classNames() {
+		    var classes = [];
+		    for (var i = 0; i < arguments.length; i++) {
+		      var arg = arguments[i];
+		      if (!arg) continue;
+		      var argType = typeof arg;
+		      if (argType === 'string' || argType === 'number') {
+		        classes.push(arg);
+		      } else if (Array.isArray(arg)) {
+		        if (arg.length) {
+		          var inner = classNames.apply(null, arg);
+		          if (inner) {
+		            classes.push(inner);
+		          }
+		        }
+		      } else if (argType === 'object') {
+		        if (arg.toString !== Object.prototype.toString && !arg.toString.toString().includes('[native code]')) {
+		          classes.push(arg.toString());
+		          continue;
+		        }
+		        for (var key in arg) {
+		          if (hasOwn.call(arg, key) && arg[key]) {
+		            classes.push(key);
+		          }
+		        }
+		      }
+		    }
+		    return classes.join(' ');
+		  }
+		  if (module.exports) {
+		    classNames.default = classNames;
+		    module.exports = classNames;
+		  } else {
+		    window.classNames = classNames;
+		  }
+		})(); 
+	} (classnames));
+
+	var classnamesExports = classnames.exports;
+
+	var innerSliderUtils = {};
+
+	Object.defineProperty(innerSliderUtils, "__esModule", {
+	  value: true
+	});
+	innerSliderUtils.checkSpecKeys = innerSliderUtils.checkNavigable = innerSliderUtils.changeSlide = innerSliderUtils.canUseDOM = innerSliderUtils.canGoNext = void 0;
+	innerSliderUtils.clamp = clamp;
+	innerSliderUtils.swipeStart = innerSliderUtils.swipeMove = innerSliderUtils.swipeEnd = innerSliderUtils.slidesOnRight = innerSliderUtils.slidesOnLeft = innerSliderUtils.slideHandler = innerSliderUtils.siblingDirection = innerSliderUtils.safePreventDefault = innerSliderUtils.lazyStartIndex = innerSliderUtils.lazySlidesOnRight = innerSliderUtils.lazySlidesOnLeft = innerSliderUtils.lazyEndIndex = innerSliderUtils.keyHandler = innerSliderUtils.initializedState = innerSliderUtils.getWidth = innerSliderUtils.getTrackLeft = innerSliderUtils.getTrackCSS = innerSliderUtils.getTrackAnimateCSS = innerSliderUtils.getTotalSlides = innerSliderUtils.getSwipeDirection = innerSliderUtils.getSlideCount = innerSliderUtils.getRequiredLazySlides = innerSliderUtils.getPreClones = innerSliderUtils.getPostClones = innerSliderUtils.getOnDemandLazySlides = innerSliderUtils.getNavigableIndexes = innerSliderUtils.getHeight = innerSliderUtils.extractObject = void 0;
+	var _react$4 = _interopRequireDefault$4(reactExports);
+	function _interopRequireDefault$4(obj) {
+	  return obj && obj.__esModule ? obj : {
+	    "default": obj
+	  };
+	}
+	function ownKeys$4(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    enumerableOnly && (symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    })), keys.push.apply(keys, symbols);
+	  }
+	  return keys;
+	}
+	function _objectSpread$4(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = null != arguments[i] ? arguments[i] : {};
+	    i % 2 ? ownKeys$4(Object(source), !0).forEach(function (key) {
+	      _defineProperty$4(target, key, source[key]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys$4(Object(source)).forEach(function (key) {
+	      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	    });
+	  }
+	  return target;
+	}
+	function _defineProperty$4(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+	function clamp(number, lowerBound, upperBound) {
+	  return Math.max(lowerBound, Math.min(number, upperBound));
+	}
+	var safePreventDefault = function safePreventDefault(event) {
+	  var passiveEvents = ["onTouchStart", "onTouchMove", "onWheel"];
+	  if (!passiveEvents.includes(event._reactName)) {
+	    event.preventDefault();
+	  }
+	};
+	innerSliderUtils.safePreventDefault = safePreventDefault;
+	var getOnDemandLazySlides = function getOnDemandLazySlides(spec) {
+	  var onDemandSlides = [];
+	  var startIndex = lazyStartIndex(spec);
+	  var endIndex = lazyEndIndex(spec);
+	  for (var slideIndex = startIndex; slideIndex < endIndex; slideIndex++) {
+	    if (spec.lazyLoadedList.indexOf(slideIndex) < 0) {
+	      onDemandSlides.push(slideIndex);
+	    }
+	  }
+	  return onDemandSlides;
+	}; // return list of slides that need to be present
+
+	innerSliderUtils.getOnDemandLazySlides = getOnDemandLazySlides;
+	var getRequiredLazySlides = function getRequiredLazySlides(spec) {
+	  var requiredSlides = [];
+	  var startIndex = lazyStartIndex(spec);
+	  var endIndex = lazyEndIndex(spec);
+	  for (var slideIndex = startIndex; slideIndex < endIndex; slideIndex++) {
+	    requiredSlides.push(slideIndex);
+	  }
+	  return requiredSlides;
+	}; // startIndex that needs to be present
+
+	innerSliderUtils.getRequiredLazySlides = getRequiredLazySlides;
+	var lazyStartIndex = function lazyStartIndex(spec) {
+	  return spec.currentSlide - lazySlidesOnLeft(spec);
+	};
+	innerSliderUtils.lazyStartIndex = lazyStartIndex;
+	var lazyEndIndex = function lazyEndIndex(spec) {
+	  return spec.currentSlide + lazySlidesOnRight(spec);
+	};
+	innerSliderUtils.lazyEndIndex = lazyEndIndex;
+	var lazySlidesOnLeft = function lazySlidesOnLeft(spec) {
+	  return spec.centerMode ? Math.floor(spec.slidesToShow / 2) + (parseInt(spec.centerPadding) > 0 ? 1 : 0) : 0;
+	};
+	innerSliderUtils.lazySlidesOnLeft = lazySlidesOnLeft;
+	var lazySlidesOnRight = function lazySlidesOnRight(spec) {
+	  return spec.centerMode ? Math.floor((spec.slidesToShow - 1) / 2) + 1 + (parseInt(spec.centerPadding) > 0 ? 1 : 0) : spec.slidesToShow;
+	}; // get width of an element
+
+	innerSliderUtils.lazySlidesOnRight = lazySlidesOnRight;
+	var getWidth = function getWidth(elem) {
+	  return elem && elem.offsetWidth || 0;
+	};
+	innerSliderUtils.getWidth = getWidth;
+	var getHeight = function getHeight(elem) {
+	  return elem && elem.offsetHeight || 0;
+	};
+	innerSliderUtils.getHeight = getHeight;
+	var getSwipeDirection = function getSwipeDirection(touchObject) {
+	  var verticalSwiping = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	  var xDist, yDist, r, swipeAngle;
+	  xDist = touchObject.startX - touchObject.curX;
+	  yDist = touchObject.startY - touchObject.curY;
+	  r = Math.atan2(yDist, xDist);
+	  swipeAngle = Math.round(r * 180 / Math.PI);
+	  if (swipeAngle < 0) {
+	    swipeAngle = 360 - Math.abs(swipeAngle);
+	  }
+	  if (swipeAngle <= 45 && swipeAngle >= 0 || swipeAngle <= 360 && swipeAngle >= 315) {
+	    return "left";
+	  }
+	  if (swipeAngle >= 135 && swipeAngle <= 225) {
+	    return "right";
+	  }
+	  if (verticalSwiping === true) {
+	    if (swipeAngle >= 35 && swipeAngle <= 135) {
+	      return "up";
+	    } else {
+	      return "down";
+	    }
+	  }
+	  return "vertical";
+	}; // whether or not we can go next
+
+	innerSliderUtils.getSwipeDirection = getSwipeDirection;
+	var canGoNext = function canGoNext(spec) {
+	  var canGo = true;
+	  if (!spec.infinite) {
+	    if (spec.centerMode && spec.currentSlide >= spec.slideCount - 1) {
+	      canGo = false;
+	    } else if (spec.slideCount <= spec.slidesToShow || spec.currentSlide >= spec.slideCount - spec.slidesToShow) {
+	      canGo = false;
+	    }
+	  }
+	  return canGo;
+	}; // given an object and a list of keys, return new object with given keys
+
+	innerSliderUtils.canGoNext = canGoNext;
+	var extractObject = function extractObject(spec, keys) {
+	  var newObject = {};
+	  keys.forEach(function (key) {
+	    return newObject[key] = spec[key];
+	  });
+	  return newObject;
+	}; // get initialized state
+
+	innerSliderUtils.extractObject = extractObject;
+	var initializedState = function initializedState(spec) {
+	  // spec also contains listRef, trackRef
+	  var slideCount = _react$4["default"].Children.count(spec.children);
+	  var listNode = spec.listRef;
+	  var listWidth = Math.ceil(getWidth(listNode));
+	  var trackNode = spec.trackRef && spec.trackRef.node;
+	  var trackWidth = Math.ceil(getWidth(trackNode));
+	  var slideWidth;
+	  if (!spec.vertical) {
+	    var centerPaddingAdj = spec.centerMode && parseInt(spec.centerPadding) * 2;
+	    if (typeof spec.centerPadding === "string" && spec.centerPadding.slice(-1) === "%") {
+	      centerPaddingAdj *= listWidth / 100;
+	    }
+	    slideWidth = Math.ceil((listWidth - centerPaddingAdj) / spec.slidesToShow);
+	  } else {
+	    slideWidth = listWidth;
+	  }
+	  var slideHeight = listNode && getHeight(listNode.querySelector('[data-index="0"]'));
+	  var listHeight = slideHeight * spec.slidesToShow;
+	  var currentSlide = spec.currentSlide === undefined ? spec.initialSlide : spec.currentSlide;
+	  if (spec.rtl && spec.currentSlide === undefined) {
+	    currentSlide = slideCount - 1 - spec.initialSlide;
+	  }
+	  var lazyLoadedList = spec.lazyLoadedList || [];
+	  var slidesToLoad = getOnDemandLazySlides(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	    currentSlide: currentSlide,
+	    lazyLoadedList: lazyLoadedList
+	  }));
+	  lazyLoadedList = lazyLoadedList.concat(slidesToLoad);
+	  var state = {
+	    slideCount: slideCount,
+	    slideWidth: slideWidth,
+	    listWidth: listWidth,
+	    trackWidth: trackWidth,
+	    currentSlide: currentSlide,
+	    slideHeight: slideHeight,
+	    listHeight: listHeight,
+	    lazyLoadedList: lazyLoadedList
+	  };
+	  if (spec.autoplaying === null && spec.autoplay) {
+	    state["autoplaying"] = "playing";
+	  }
+	  return state;
+	};
+	innerSliderUtils.initializedState = initializedState;
+	var slideHandler = function slideHandler(spec) {
+	  var waitForAnimate = spec.waitForAnimate,
+	    animating = spec.animating,
+	    fade = spec.fade,
+	    infinite = spec.infinite,
+	    index = spec.index,
+	    slideCount = spec.slideCount,
+	    lazyLoad = spec.lazyLoad,
+	    currentSlide = spec.currentSlide,
+	    centerMode = spec.centerMode,
+	    slidesToScroll = spec.slidesToScroll,
+	    slidesToShow = spec.slidesToShow,
+	    useCSS = spec.useCSS;
+	  var lazyLoadedList = spec.lazyLoadedList;
+	  if (waitForAnimate && animating) return {};
+	  var animationSlide = index,
+	    finalSlide,
+	    animationLeft,
+	    finalLeft;
+	  var state = {},
+	    nextState = {};
+	  var targetSlide = infinite ? index : clamp(index, 0, slideCount - 1);
+	  if (fade) {
+	    if (!infinite && (index < 0 || index >= slideCount)) return {};
+	    if (index < 0) {
+	      animationSlide = index + slideCount;
+	    } else if (index >= slideCount) {
+	      animationSlide = index - slideCount;
+	    }
+	    if (lazyLoad && lazyLoadedList.indexOf(animationSlide) < 0) {
+	      lazyLoadedList = lazyLoadedList.concat(animationSlide);
+	    }
+	    state = {
+	      animating: true,
+	      currentSlide: animationSlide,
+	      lazyLoadedList: lazyLoadedList,
+	      targetSlide: animationSlide
+	    };
+	    nextState = {
+	      animating: false,
+	      targetSlide: animationSlide
+	    };
+	  } else {
+	    finalSlide = animationSlide;
+	    if (animationSlide < 0) {
+	      finalSlide = animationSlide + slideCount;
+	      if (!infinite) finalSlide = 0;else if (slideCount % slidesToScroll !== 0) finalSlide = slideCount - slideCount % slidesToScroll;
+	    } else if (!canGoNext(spec) && animationSlide > currentSlide) {
+	      animationSlide = finalSlide = currentSlide;
+	    } else if (centerMode && animationSlide >= slideCount) {
+	      animationSlide = infinite ? slideCount : slideCount - 1;
+	      finalSlide = infinite ? 0 : slideCount - 1;
+	    } else if (animationSlide >= slideCount) {
+	      finalSlide = animationSlide - slideCount;
+	      if (!infinite) finalSlide = slideCount - slidesToShow;else if (slideCount % slidesToScroll !== 0) finalSlide = 0;
+	    }
+	    if (!infinite && animationSlide + slidesToShow >= slideCount) {
+	      finalSlide = slideCount - slidesToShow;
+	    }
+	    animationLeft = getTrackLeft(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	      slideIndex: animationSlide
+	    }));
+	    finalLeft = getTrackLeft(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	      slideIndex: finalSlide
+	    }));
+	    if (!infinite) {
+	      if (animationLeft === finalLeft) animationSlide = finalSlide;
+	      animationLeft = finalLeft;
+	    }
+	    if (lazyLoad) {
+	      lazyLoadedList = lazyLoadedList.concat(getOnDemandLazySlides(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	        currentSlide: animationSlide
+	      })));
+	    }
+	    if (!useCSS) {
+	      state = {
+	        currentSlide: finalSlide,
+	        trackStyle: getTrackCSS(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	          left: finalLeft
+	        })),
+	        lazyLoadedList: lazyLoadedList,
+	        targetSlide: targetSlide
+	      };
+	    } else {
+	      state = {
+	        animating: true,
+	        currentSlide: finalSlide,
+	        trackStyle: getTrackAnimateCSS(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	          left: animationLeft
+	        })),
+	        lazyLoadedList: lazyLoadedList,
+	        targetSlide: targetSlide
+	      };
+	      nextState = {
+	        animating: false,
+	        currentSlide: finalSlide,
+	        trackStyle: getTrackCSS(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	          left: finalLeft
+	        })),
+	        swipeLeft: null,
+	        targetSlide: targetSlide
+	      };
+	    }
+	  }
+	  return {
+	    state: state,
+	    nextState: nextState
+	  };
+	};
+	innerSliderUtils.slideHandler = slideHandler;
+	var changeSlide = function changeSlide(spec, options) {
+	  var indexOffset, previousInt, slideOffset, unevenOffset, targetSlide;
+	  var slidesToScroll = spec.slidesToScroll,
+	    slidesToShow = spec.slidesToShow,
+	    slideCount = spec.slideCount,
+	    currentSlide = spec.currentSlide,
+	    previousTargetSlide = spec.targetSlide,
+	    lazyLoad = spec.lazyLoad,
+	    infinite = spec.infinite;
+	  unevenOffset = slideCount % slidesToScroll !== 0;
+	  indexOffset = unevenOffset ? 0 : (slideCount - currentSlide) % slidesToScroll;
+	  if (options.message === "previous") {
+	    slideOffset = indexOffset === 0 ? slidesToScroll : slidesToShow - indexOffset;
+	    targetSlide = currentSlide - slideOffset;
+	    if (lazyLoad && !infinite) {
+	      previousInt = currentSlide - slideOffset;
+	      targetSlide = previousInt === -1 ? slideCount - 1 : previousInt;
+	    }
+	    if (!infinite) {
+	      targetSlide = previousTargetSlide - slidesToScroll;
+	    }
+	  } else if (options.message === "next") {
+	    slideOffset = indexOffset === 0 ? slidesToScroll : indexOffset;
+	    targetSlide = currentSlide + slideOffset;
+	    if (lazyLoad && !infinite) {
+	      targetSlide = (currentSlide + slidesToScroll) % slideCount + indexOffset;
+	    }
+	    if (!infinite) {
+	      targetSlide = previousTargetSlide + slidesToScroll;
+	    }
+	  } else if (options.message === "dots") {
+	    // Click on dots
+	    targetSlide = options.index * options.slidesToScroll;
+	  } else if (options.message === "children") {
+	    // Click on the slides
+	    targetSlide = options.index;
+	    if (infinite) {
+	      var direction = siblingDirection(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	        targetSlide: targetSlide
+	      }));
+	      if (targetSlide > options.currentSlide && direction === "left") {
+	        targetSlide = targetSlide - slideCount;
+	      } else if (targetSlide < options.currentSlide && direction === "right") {
+	        targetSlide = targetSlide + slideCount;
+	      }
+	    }
+	  } else if (options.message === "index") {
+	    targetSlide = Number(options.index);
+	  }
+	  return targetSlide;
+	};
+	innerSliderUtils.changeSlide = changeSlide;
+	var keyHandler = function keyHandler(e, accessibility, rtl) {
+	  if (e.target.tagName.match("TEXTAREA|INPUT|SELECT") || !accessibility) return "";
+	  if (e.keyCode === 37) return rtl ? "next" : "previous";
+	  if (e.keyCode === 39) return rtl ? "previous" : "next";
+	  return "";
+	};
+	innerSliderUtils.keyHandler = keyHandler;
+	var swipeStart = function swipeStart(e, swipe, draggable) {
+	  e.target.tagName === "IMG" && safePreventDefault(e);
+	  if (!swipe || !draggable && e.type.indexOf("mouse") !== -1) return "";
+	  return {
+	    dragging: true,
+	    touchObject: {
+	      startX: e.touches ? e.touches[0].pageX : e.clientX,
+	      startY: e.touches ? e.touches[0].pageY : e.clientY,
+	      curX: e.touches ? e.touches[0].pageX : e.clientX,
+	      curY: e.touches ? e.touches[0].pageY : e.clientY
+	    }
+	  };
+	};
+	innerSliderUtils.swipeStart = swipeStart;
+	var swipeMove = function swipeMove(e, spec) {
+	  // spec also contains, trackRef and slideIndex
+	  var scrolling = spec.scrolling,
+	    animating = spec.animating,
+	    vertical = spec.vertical,
+	    swipeToSlide = spec.swipeToSlide,
+	    verticalSwiping = spec.verticalSwiping,
+	    rtl = spec.rtl,
+	    currentSlide = spec.currentSlide,
+	    edgeFriction = spec.edgeFriction,
+	    edgeDragged = spec.edgeDragged,
+	    onEdge = spec.onEdge,
+	    swiped = spec.swiped,
+	    swiping = spec.swiping,
+	    slideCount = spec.slideCount,
+	    slidesToScroll = spec.slidesToScroll,
+	    infinite = spec.infinite,
+	    touchObject = spec.touchObject,
+	    swipeEvent = spec.swipeEvent,
+	    listHeight = spec.listHeight,
+	    listWidth = spec.listWidth;
+	  if (scrolling) return;
+	  if (animating) return safePreventDefault(e);
+	  if (vertical && swipeToSlide && verticalSwiping) safePreventDefault(e);
+	  var swipeLeft,
+	    state = {};
+	  var curLeft = getTrackLeft(spec);
+	  touchObject.curX = e.touches ? e.touches[0].pageX : e.clientX;
+	  touchObject.curY = e.touches ? e.touches[0].pageY : e.clientY;
+	  touchObject.swipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curX - touchObject.startX, 2)));
+	  var verticalSwipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curY - touchObject.startY, 2)));
+	  if (!verticalSwiping && !swiping && verticalSwipeLength > 10) {
+	    return {
+	      scrolling: true
+	    };
+	  }
+	  if (verticalSwiping) touchObject.swipeLength = verticalSwipeLength;
+	  var positionOffset = (!rtl ? 1 : -1) * (touchObject.curX > touchObject.startX ? 1 : -1);
+	  if (verticalSwiping) positionOffset = touchObject.curY > touchObject.startY ? 1 : -1;
+	  var dotCount = Math.ceil(slideCount / slidesToScroll);
+	  var swipeDirection = getSwipeDirection(spec.touchObject, verticalSwiping);
+	  var touchSwipeLength = touchObject.swipeLength;
+	  if (!infinite) {
+	    if (currentSlide === 0 && (swipeDirection === "right" || swipeDirection === "down") || currentSlide + 1 >= dotCount && (swipeDirection === "left" || swipeDirection === "up") || !canGoNext(spec) && (swipeDirection === "left" || swipeDirection === "up")) {
+	      touchSwipeLength = touchObject.swipeLength * edgeFriction;
+	      if (edgeDragged === false && onEdge) {
+	        onEdge(swipeDirection);
+	        state["edgeDragged"] = true;
+	      }
+	    }
+	  }
+	  if (!swiped && swipeEvent) {
+	    swipeEvent(swipeDirection);
+	    state["swiped"] = true;
+	  }
+	  if (!vertical) {
+	    if (!rtl) {
+	      swipeLeft = curLeft + touchSwipeLength * positionOffset;
+	    } else {
+	      swipeLeft = curLeft - touchSwipeLength * positionOffset;
+	    }
+	  } else {
+	    swipeLeft = curLeft + touchSwipeLength * (listHeight / listWidth) * positionOffset;
+	  }
+	  if (verticalSwiping) {
+	    swipeLeft = curLeft + touchSwipeLength * positionOffset;
+	  }
+	  state = _objectSpread$4(_objectSpread$4({}, state), {}, {
+	    touchObject: touchObject,
+	    swipeLeft: swipeLeft,
+	    trackStyle: getTrackCSS(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	      left: swipeLeft
+	    }))
+	  });
+	  if (Math.abs(touchObject.curX - touchObject.startX) < Math.abs(touchObject.curY - touchObject.startY) * 0.8) {
+	    return state;
+	  }
+	  if (touchObject.swipeLength > 10) {
+	    state["swiping"] = true;
+	    safePreventDefault(e);
+	  }
+	  return state;
+	};
+	innerSliderUtils.swipeMove = swipeMove;
+	var swipeEnd = function swipeEnd(e, spec) {
+	  var dragging = spec.dragging,
+	    swipe = spec.swipe,
+	    touchObject = spec.touchObject,
+	    listWidth = spec.listWidth,
+	    touchThreshold = spec.touchThreshold,
+	    verticalSwiping = spec.verticalSwiping,
+	    listHeight = spec.listHeight,
+	    swipeToSlide = spec.swipeToSlide,
+	    scrolling = spec.scrolling,
+	    onSwipe = spec.onSwipe,
+	    targetSlide = spec.targetSlide,
+	    currentSlide = spec.currentSlide,
+	    infinite = spec.infinite;
+	  if (!dragging) {
+	    if (swipe) safePreventDefault(e);
+	    return {};
+	  }
+	  var minSwipe = verticalSwiping ? listHeight / touchThreshold : listWidth / touchThreshold;
+	  var swipeDirection = getSwipeDirection(touchObject, verticalSwiping); // reset the state of touch related state variables.
+
+	  var state = {
+	    dragging: false,
+	    edgeDragged: false,
+	    scrolling: false,
+	    swiping: false,
+	    swiped: false,
+	    swipeLeft: null,
+	    touchObject: {}
+	  };
+	  if (scrolling) {
+	    return state;
+	  }
+	  if (!touchObject.swipeLength) {
+	    return state;
+	  }
+	  if (touchObject.swipeLength > minSwipe) {
+	    safePreventDefault(e);
+	    if (onSwipe) {
+	      onSwipe(swipeDirection);
+	    }
+	    var slideCount, newSlide;
+	    var activeSlide = infinite ? currentSlide : targetSlide;
+	    switch (swipeDirection) {
+	      case "left":
+	      case "up":
+	        newSlide = activeSlide + getSlideCount(spec);
+	        slideCount = swipeToSlide ? checkNavigable(spec, newSlide) : newSlide;
+	        state["currentDirection"] = 0;
+	        break;
+	      case "right":
+	      case "down":
+	        newSlide = activeSlide - getSlideCount(spec);
+	        slideCount = swipeToSlide ? checkNavigable(spec, newSlide) : newSlide;
+	        state["currentDirection"] = 1;
+	        break;
+	      default:
+	        slideCount = activeSlide;
+	    }
+	    state["triggerSlideHandler"] = slideCount;
+	  } else {
+	    // Adjust the track back to it's original position.
+	    var currentLeft = getTrackLeft(spec);
+	    state["trackStyle"] = getTrackAnimateCSS(_objectSpread$4(_objectSpread$4({}, spec), {}, {
+	      left: currentLeft
+	    }));
+	  }
+	  return state;
+	};
+	innerSliderUtils.swipeEnd = swipeEnd;
+	var getNavigableIndexes = function getNavigableIndexes(spec) {
+	  var max = spec.infinite ? spec.slideCount * 2 : spec.slideCount;
+	  var breakpoint = spec.infinite ? spec.slidesToShow * -1 : 0;
+	  var counter = spec.infinite ? spec.slidesToShow * -1 : 0;
+	  var indexes = [];
+	  while (breakpoint < max) {
+	    indexes.push(breakpoint);
+	    breakpoint = counter + spec.slidesToScroll;
+	    counter += Math.min(spec.slidesToScroll, spec.slidesToShow);
+	  }
+	  return indexes;
+	};
+	innerSliderUtils.getNavigableIndexes = getNavigableIndexes;
+	var checkNavigable = function checkNavigable(spec, index) {
+	  var navigables = getNavigableIndexes(spec);
+	  var prevNavigable = 0;
+	  if (index > navigables[navigables.length - 1]) {
+	    index = navigables[navigables.length - 1];
+	  } else {
+	    for (var n in navigables) {
+	      if (index < navigables[n]) {
+	        index = prevNavigable;
+	        break;
+	      }
+	      prevNavigable = navigables[n];
+	    }
+	  }
+	  return index;
+	};
+	innerSliderUtils.checkNavigable = checkNavigable;
+	var getSlideCount = function getSlideCount(spec) {
+	  var centerOffset = spec.centerMode ? spec.slideWidth * Math.floor(spec.slidesToShow / 2) : 0;
+	  if (spec.swipeToSlide) {
+	    var swipedSlide;
+	    var slickList = spec.listRef;
+	    var slides = slickList.querySelectorAll && slickList.querySelectorAll(".slick-slide") || [];
+	    Array.from(slides).every(function (slide) {
+	      if (!spec.vertical) {
+	        if (slide.offsetLeft - centerOffset + getWidth(slide) / 2 > spec.swipeLeft * -1) {
+	          swipedSlide = slide;
+	          return false;
+	        }
+	      } else {
+	        if (slide.offsetTop + getHeight(slide) / 2 > spec.swipeLeft * -1) {
+	          swipedSlide = slide;
+	          return false;
+	        }
+	      }
+	      return true;
+	    });
+	    if (!swipedSlide) {
+	      return 0;
+	    }
+	    var currentIndex = spec.rtl === true ? spec.slideCount - spec.currentSlide : spec.currentSlide;
+	    var slidesTraversed = Math.abs(swipedSlide.dataset.index - currentIndex) || 1;
+	    return slidesTraversed;
+	  } else {
+	    return spec.slidesToScroll;
+	  }
+	};
+	innerSliderUtils.getSlideCount = getSlideCount;
+	var checkSpecKeys = function checkSpecKeys(spec, keysArray) {
+	  return keysArray.reduce(function (value, key) {
+	    return value && spec.hasOwnProperty(key);
+	  }, true) ? null : console.error("Keys Missing:", spec);
+	};
+	innerSliderUtils.checkSpecKeys = checkSpecKeys;
+	var getTrackCSS = function getTrackCSS(spec) {
+	  checkSpecKeys(spec, ["left", "variableWidth", "slideCount", "slidesToShow", "slideWidth"]);
+	  var trackWidth, trackHeight;
+	  var trackChildren = spec.slideCount + 2 * spec.slidesToShow;
+	  if (!spec.vertical) {
+	    trackWidth = getTotalSlides(spec) * spec.slideWidth;
+	  } else {
+	    trackHeight = trackChildren * spec.slideHeight;
+	  }
+	  var style = {
+	    opacity: 1,
+	    transition: "",
+	    WebkitTransition: ""
+	  };
+	  if (spec.useTransform) {
+	    var WebkitTransform = !spec.vertical ? "translate3d(" + spec.left + "px, 0px, 0px)" : "translate3d(0px, " + spec.left + "px, 0px)";
+	    var transform = !spec.vertical ? "translate3d(" + spec.left + "px, 0px, 0px)" : "translate3d(0px, " + spec.left + "px, 0px)";
+	    var msTransform = !spec.vertical ? "translateX(" + spec.left + "px)" : "translateY(" + spec.left + "px)";
+	    style = _objectSpread$4(_objectSpread$4({}, style), {}, {
+	      WebkitTransform: WebkitTransform,
+	      transform: transform,
+	      msTransform: msTransform
+	    });
+	  } else {
+	    if (spec.vertical) {
+	      style["top"] = spec.left;
+	    } else {
+	      style["left"] = spec.left;
+	    }
+	  }
+	  if (spec.fade) style = {
+	    opacity: 1
+	  };
+	  if (trackWidth) style.width = trackWidth;
+	  if (trackHeight) style.height = trackHeight; // Fallback for IE8
+
+	  if (window && !window.addEventListener && window.attachEvent) {
+	    if (!spec.vertical) {
+	      style.marginLeft = spec.left + "px";
+	    } else {
+	      style.marginTop = spec.left + "px";
+	    }
+	  }
+	  return style;
+	};
+	innerSliderUtils.getTrackCSS = getTrackCSS;
+	var getTrackAnimateCSS = function getTrackAnimateCSS(spec) {
+	  checkSpecKeys(spec, ["left", "variableWidth", "slideCount", "slidesToShow", "slideWidth", "speed", "cssEase"]);
+	  var style = getTrackCSS(spec); // useCSS is true by default so it can be undefined
+
+	  if (spec.useTransform) {
+	    style.WebkitTransition = "-webkit-transform " + spec.speed + "ms " + spec.cssEase;
+	    style.transition = "transform " + spec.speed + "ms " + spec.cssEase;
+	  } else {
+	    if (spec.vertical) {
+	      style.transition = "top " + spec.speed + "ms " + spec.cssEase;
+	    } else {
+	      style.transition = "left " + spec.speed + "ms " + spec.cssEase;
+	    }
+	  }
+	  return style;
+	};
+	innerSliderUtils.getTrackAnimateCSS = getTrackAnimateCSS;
+	var getTrackLeft = function getTrackLeft(spec) {
+	  if (spec.unslick) {
+	    return 0;
+	  }
+	  checkSpecKeys(spec, ["slideIndex", "trackRef", "infinite", "centerMode", "slideCount", "slidesToShow", "slidesToScroll", "slideWidth", "listWidth", "variableWidth", "slideHeight"]);
+	  var slideIndex = spec.slideIndex,
+	    trackRef = spec.trackRef,
+	    infinite = spec.infinite,
+	    centerMode = spec.centerMode,
+	    slideCount = spec.slideCount,
+	    slidesToShow = spec.slidesToShow,
+	    slidesToScroll = spec.slidesToScroll,
+	    slideWidth = spec.slideWidth,
+	    listWidth = spec.listWidth,
+	    variableWidth = spec.variableWidth,
+	    slideHeight = spec.slideHeight,
+	    fade = spec.fade,
+	    vertical = spec.vertical;
+	  var slideOffset = 0;
+	  var targetLeft;
+	  var targetSlide;
+	  var verticalOffset = 0;
+	  if (fade || spec.slideCount === 1) {
+	    return 0;
+	  }
+	  var slidesToOffset = 0;
+	  if (infinite) {
+	    slidesToOffset = -getPreClones(spec); // bring active slide to the beginning of visual area
+	    // if next scroll doesn't have enough children, just reach till the end of original slides instead of shifting slidesToScroll children
+
+	    if (slideCount % slidesToScroll !== 0 && slideIndex + slidesToScroll > slideCount) {
+	      slidesToOffset = -(slideIndex > slideCount ? slidesToShow - (slideIndex - slideCount) : slideCount % slidesToScroll);
+	    } // shift current slide to center of the frame
+
+	    if (centerMode) {
+	      slidesToOffset += parseInt(slidesToShow / 2);
+	    }
+	  } else {
+	    if (slideCount % slidesToScroll !== 0 && slideIndex + slidesToScroll > slideCount) {
+	      slidesToOffset = slidesToShow - slideCount % slidesToScroll;
+	    }
+	    if (centerMode) {
+	      slidesToOffset = parseInt(slidesToShow / 2);
+	    }
+	  }
+	  slideOffset = slidesToOffset * slideWidth;
+	  verticalOffset = slidesToOffset * slideHeight;
+	  if (!vertical) {
+	    targetLeft = slideIndex * slideWidth * -1 + slideOffset;
+	  } else {
+	    targetLeft = slideIndex * slideHeight * -1 + verticalOffset;
+	  }
+	  if (variableWidth === true) {
+	    var targetSlideIndex;
+	    var trackElem = trackRef && trackRef.node;
+	    targetSlideIndex = slideIndex + getPreClones(spec);
+	    targetSlide = trackElem && trackElem.childNodes[targetSlideIndex];
+	    targetLeft = targetSlide ? targetSlide.offsetLeft * -1 : 0;
+	    if (centerMode === true) {
+	      targetSlideIndex = infinite ? slideIndex + getPreClones(spec) : slideIndex;
+	      targetSlide = trackElem && trackElem.children[targetSlideIndex];
+	      targetLeft = 0;
+	      for (var slide = 0; slide < targetSlideIndex; slide++) {
+	        targetLeft -= trackElem && trackElem.children[slide] && trackElem.children[slide].offsetWidth;
+	      }
+	      targetLeft -= parseInt(spec.centerPadding);
+	      targetLeft += targetSlide && (listWidth - targetSlide.offsetWidth) / 2;
+	    }
+	  }
+	  return targetLeft;
+	};
+	innerSliderUtils.getTrackLeft = getTrackLeft;
+	var getPreClones = function getPreClones(spec) {
+	  if (spec.unslick || !spec.infinite) {
+	    return 0;
+	  }
+	  if (spec.variableWidth) {
+	    return spec.slideCount;
+	  }
+	  return spec.slidesToShow + (spec.centerMode ? 1 : 0);
+	};
+	innerSliderUtils.getPreClones = getPreClones;
+	var getPostClones = function getPostClones(spec) {
+	  if (spec.unslick || !spec.infinite) {
+	    return 0;
+	  }
+	  return spec.slideCount;
+	};
+	innerSliderUtils.getPostClones = getPostClones;
+	var getTotalSlides = function getTotalSlides(spec) {
+	  return spec.slideCount === 1 ? 1 : getPreClones(spec) + spec.slideCount + getPostClones(spec);
+	};
+	innerSliderUtils.getTotalSlides = getTotalSlides;
+	var siblingDirection = function siblingDirection(spec) {
+	  if (spec.targetSlide > spec.currentSlide) {
+	    if (spec.targetSlide > spec.currentSlide + slidesOnRight(spec)) {
+	      return "left";
+	    }
+	    return "right";
+	  } else {
+	    if (spec.targetSlide < spec.currentSlide - slidesOnLeft(spec)) {
+	      return "right";
+	    }
+	    return "left";
+	  }
+	};
+	innerSliderUtils.siblingDirection = siblingDirection;
+	var slidesOnRight = function slidesOnRight(_ref) {
+	  var slidesToShow = _ref.slidesToShow,
+	    centerMode = _ref.centerMode,
+	    rtl = _ref.rtl,
+	    centerPadding = _ref.centerPadding;
+
+	  // returns no of slides on the right of active slide
+	  if (centerMode) {
+	    var right = (slidesToShow - 1) / 2 + 1;
+	    if (parseInt(centerPadding) > 0) right += 1;
+	    if (rtl && slidesToShow % 2 === 0) right += 1;
+	    return right;
+	  }
+	  if (rtl) {
+	    return 0;
+	  }
+	  return slidesToShow - 1;
+	};
+	innerSliderUtils.slidesOnRight = slidesOnRight;
+	var slidesOnLeft = function slidesOnLeft(_ref2) {
+	  var slidesToShow = _ref2.slidesToShow,
+	    centerMode = _ref2.centerMode,
+	    rtl = _ref2.rtl,
+	    centerPadding = _ref2.centerPadding;
+
+	  // returns no of slides on the left of active slide
+	  if (centerMode) {
+	    var left = (slidesToShow - 1) / 2 + 1;
+	    if (parseInt(centerPadding) > 0) left += 1;
+	    if (!rtl && slidesToShow % 2 === 0) left += 1;
+	    return left;
+	  }
+	  if (rtl) {
+	    return slidesToShow - 1;
+	  }
+	  return 0;
+	};
+	innerSliderUtils.slidesOnLeft = slidesOnLeft;
+	var canUseDOM = function canUseDOM() {
+	  return !!(typeof window !== "undefined" && window.document && window.document.createElement);
+	};
+	innerSliderUtils.canUseDOM = canUseDOM;
+
+	var track = {};
+
+	function _typeof$3(obj) {
+	  "@babel/helpers - typeof";
+
+	  return _typeof$3 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+	    return typeof obj;
+	  } : function (obj) {
+	    return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+	  }, _typeof$3(obj);
+	}
+	Object.defineProperty(track, "__esModule", {
+	  value: true
+	});
+	track.Track = void 0;
+	var _react$3 = _interopRequireDefault$3(reactExports);
+	var _classnames$3 = _interopRequireDefault$3(classnamesExports);
+	var _innerSliderUtils$3 = innerSliderUtils;
+	function _interopRequireDefault$3(obj) {
+	  return obj && obj.__esModule ? obj : {
+	    "default": obj
+	  };
+	}
+	function _extends$2() {
+	  _extends$2 = Object.assign || function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$2.apply(this, arguments);
+	}
+	function _classCallCheck$3(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+	function _defineProperties$3(target, props) {
+	  for (var i = 0; i < props.length; i++) {
+	    var descriptor = props[i];
+	    descriptor.enumerable = descriptor.enumerable || false;
+	    descriptor.configurable = true;
+	    if ("value" in descriptor) descriptor.writable = true;
+	    Object.defineProperty(target, descriptor.key, descriptor);
+	  }
+	}
+	function _createClass$3(Constructor, protoProps, staticProps) {
+	  if (protoProps) _defineProperties$3(Constructor.prototype, protoProps);
+	  if (staticProps) _defineProperties$3(Constructor, staticProps);
+	  Object.defineProperty(Constructor, "prototype", {
+	    writable: false
+	  });
+	  return Constructor;
+	}
+	function _inherits$3(subClass, superClass) {
+	  if (typeof superClass !== "function" && superClass !== null) {
+	    throw new TypeError("Super expression must either be null or a function");
+	  }
+	  subClass.prototype = Object.create(superClass && superClass.prototype, {
+	    constructor: {
+	      value: subClass,
+	      writable: true,
+	      configurable: true
+	    }
+	  });
+	  Object.defineProperty(subClass, "prototype", {
+	    writable: false
+	  });
+	  if (superClass) _setPrototypeOf$3(subClass, superClass);
+	}
+	function _setPrototypeOf$3(o, p) {
+	  _setPrototypeOf$3 = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+	    o.__proto__ = p;
+	    return o;
+	  };
+	  return _setPrototypeOf$3(o, p);
+	}
+	function _createSuper$3(Derived) {
+	  var hasNativeReflectConstruct = _isNativeReflectConstruct$3();
+	  return function _createSuperInternal() {
+	    var Super = _getPrototypeOf$3(Derived),
+	      result;
+	    if (hasNativeReflectConstruct) {
+	      var NewTarget = _getPrototypeOf$3(this).constructor;
+	      result = Reflect.construct(Super, arguments, NewTarget);
+	    } else {
+	      result = Super.apply(this, arguments);
+	    }
+	    return _possibleConstructorReturn$3(this, result);
+	  };
+	}
+	function _possibleConstructorReturn$3(self, call) {
+	  if (call && (_typeof$3(call) === "object" || typeof call === "function")) {
+	    return call;
+	  } else if (call !== void 0) {
+	    throw new TypeError("Derived constructors may only return object or undefined");
+	  }
+	  return _assertThisInitialized$3(self);
+	}
+	function _assertThisInitialized$3(self) {
+	  if (self === void 0) {
+	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  }
+	  return self;
+	}
+	function _isNativeReflectConstruct$3() {
+	  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+	  if (Reflect.construct.sham) return false;
+	  if (typeof Proxy === "function") return true;
+	  try {
+	    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}));
+	    return true;
+	  } catch (e) {
+	    return false;
+	  }
+	}
+	function _getPrototypeOf$3(o) {
+	  _getPrototypeOf$3 = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+	    return o.__proto__ || Object.getPrototypeOf(o);
+	  };
+	  return _getPrototypeOf$3(o);
+	}
+	function ownKeys$3(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    enumerableOnly && (symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    })), keys.push.apply(keys, symbols);
+	  }
+	  return keys;
+	}
+	function _objectSpread$3(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = null != arguments[i] ? arguments[i] : {};
+	    i % 2 ? ownKeys$3(Object(source), !0).forEach(function (key) {
+	      _defineProperty$3(target, key, source[key]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys$3(Object(source)).forEach(function (key) {
+	      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	    });
+	  }
+	  return target;
+	}
+	function _defineProperty$3(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+
+	// given specifications/props for a slide, fetch all the classes that need to be applied to the slide
+	var getSlideClasses = function getSlideClasses(spec) {
+	  var slickActive, slickCenter, slickCloned;
+	  var centerOffset, index;
+	  if (spec.rtl) {
+	    index = spec.slideCount - 1 - spec.index;
+	  } else {
+	    index = spec.index;
+	  }
+	  slickCloned = index < 0 || index >= spec.slideCount;
+	  if (spec.centerMode) {
+	    centerOffset = Math.floor(spec.slidesToShow / 2);
+	    slickCenter = (index - spec.currentSlide) % spec.slideCount === 0;
+	    if (index > spec.currentSlide - centerOffset - 1 && index <= spec.currentSlide + centerOffset) {
+	      slickActive = true;
+	    }
+	  } else {
+	    slickActive = spec.currentSlide <= index && index < spec.currentSlide + spec.slidesToShow;
+	  }
+	  var focusedSlide;
+	  if (spec.targetSlide < 0) {
+	    focusedSlide = spec.targetSlide + spec.slideCount;
+	  } else if (spec.targetSlide >= spec.slideCount) {
+	    focusedSlide = spec.targetSlide - spec.slideCount;
+	  } else {
+	    focusedSlide = spec.targetSlide;
+	  }
+	  var slickCurrent = index === focusedSlide;
+	  return {
+	    "slick-slide": true,
+	    "slick-active": slickActive,
+	    "slick-center": slickCenter,
+	    "slick-cloned": slickCloned,
+	    "slick-current": slickCurrent // dubious in case of RTL
+	  };
+	};
+
+	var getSlideStyle = function getSlideStyle(spec) {
+	  var style = {};
+	  if (spec.variableWidth === undefined || spec.variableWidth === false) {
+	    style.width = spec.slideWidth;
+	  }
+	  if (spec.fade) {
+	    style.position = "relative";
+	    if (spec.vertical) {
+	      style.top = -spec.index * parseInt(spec.slideHeight);
+	    } else {
+	      style.left = -spec.index * parseInt(spec.slideWidth);
+	    }
+	    style.opacity = spec.currentSlide === spec.index ? 1 : 0;
+	    if (spec.useCSS) {
+	      style.transition = "opacity " + spec.speed + "ms " + spec.cssEase + ", " + "visibility " + spec.speed + "ms " + spec.cssEase;
+	    }
+	  }
+	  return style;
+	};
+	var getKey = function getKey(child, fallbackKey) {
+	  return child.key || fallbackKey;
+	};
+	var renderSlides = function renderSlides(spec) {
+	  var key;
+	  var slides = [];
+	  var preCloneSlides = [];
+	  var postCloneSlides = [];
+	  var childrenCount = _react$3["default"].Children.count(spec.children);
+	  var startIndex = (0, _innerSliderUtils$3.lazyStartIndex)(spec);
+	  var endIndex = (0, _innerSliderUtils$3.lazyEndIndex)(spec);
+	  _react$3["default"].Children.forEach(spec.children, function (elem, index) {
+	    var child;
+	    var childOnClickOptions = {
+	      message: "children",
+	      index: index,
+	      slidesToScroll: spec.slidesToScroll,
+	      currentSlide: spec.currentSlide
+	    }; // in case of lazyLoad, whether or not we want to fetch the slide
+
+	    if (!spec.lazyLoad || spec.lazyLoad && spec.lazyLoadedList.indexOf(index) >= 0) {
+	      child = elem;
+	    } else {
+	      child = /*#__PURE__*/_react$3["default"].createElement("div", null);
+	    }
+	    var childStyle = getSlideStyle(_objectSpread$3(_objectSpread$3({}, spec), {}, {
+	      index: index
+	    }));
+	    var slideClass = child.props.className || "";
+	    var slideClasses = getSlideClasses(_objectSpread$3(_objectSpread$3({}, spec), {}, {
+	      index: index
+	    })); // push a cloned element of the desired slide
+
+	    slides.push( /*#__PURE__*/_react$3["default"].cloneElement(child, {
+	      key: "original" + getKey(child, index),
+	      "data-index": index,
+	      className: (0, _classnames$3["default"])(slideClasses, slideClass),
+	      tabIndex: "-1",
+	      "aria-hidden": !slideClasses["slick-active"],
+	      style: _objectSpread$3(_objectSpread$3({
+	        outline: "none"
+	      }, child.props.style || {}), childStyle),
+	      onClick: function onClick(e) {
+	        child.props && child.props.onClick && child.props.onClick(e);
+	        if (spec.focusOnSelect) {
+	          spec.focusOnSelect(childOnClickOptions);
+	        }
+	      }
+	    })); // if slide needs to be precloned or postcloned
+
+	    if (spec.infinite && spec.fade === false) {
+	      var preCloneNo = childrenCount - index;
+	      if (preCloneNo <= (0, _innerSliderUtils$3.getPreClones)(spec) && childrenCount !== spec.slidesToShow) {
+	        key = -preCloneNo;
+	        if (key >= startIndex) {
+	          child = elem;
+	        }
+	        slideClasses = getSlideClasses(_objectSpread$3(_objectSpread$3({}, spec), {}, {
+	          index: key
+	        }));
+	        preCloneSlides.push( /*#__PURE__*/_react$3["default"].cloneElement(child, {
+	          key: "precloned" + getKey(child, key),
+	          "data-index": key,
+	          tabIndex: "-1",
+	          className: (0, _classnames$3["default"])(slideClasses, slideClass),
+	          "aria-hidden": !slideClasses["slick-active"],
+	          style: _objectSpread$3(_objectSpread$3({}, child.props.style || {}), childStyle),
+	          onClick: function onClick(e) {
+	            child.props && child.props.onClick && child.props.onClick(e);
+	            if (spec.focusOnSelect) {
+	              spec.focusOnSelect(childOnClickOptions);
+	            }
+	          }
+	        }));
+	      }
+	      if (childrenCount !== spec.slidesToShow) {
+	        key = childrenCount + index;
+	        if (key < endIndex) {
+	          child = elem;
+	        }
+	        slideClasses = getSlideClasses(_objectSpread$3(_objectSpread$3({}, spec), {}, {
+	          index: key
+	        }));
+	        postCloneSlides.push( /*#__PURE__*/_react$3["default"].cloneElement(child, {
+	          key: "postcloned" + getKey(child, key),
+	          "data-index": key,
+	          tabIndex: "-1",
+	          className: (0, _classnames$3["default"])(slideClasses, slideClass),
+	          "aria-hidden": !slideClasses["slick-active"],
+	          style: _objectSpread$3(_objectSpread$3({}, child.props.style || {}), childStyle),
+	          onClick: function onClick(e) {
+	            child.props && child.props.onClick && child.props.onClick(e);
+	            if (spec.focusOnSelect) {
+	              spec.focusOnSelect(childOnClickOptions);
+	            }
+	          }
+	        }));
+	      }
+	    }
+	  });
+	  if (spec.rtl) {
+	    return preCloneSlides.concat(slides, postCloneSlides).reverse();
+	  } else {
+	    return preCloneSlides.concat(slides, postCloneSlides);
+	  }
+	};
+	var Track = /*#__PURE__*/function (_React$PureComponent) {
+	  _inherits$3(Track, _React$PureComponent);
+	  var _super = _createSuper$3(Track);
+	  function Track() {
+	    var _this;
+	    _classCallCheck$3(this, Track);
+	    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+	      args[_key] = arguments[_key];
+	    }
+	    _this = _super.call.apply(_super, [this].concat(args));
+	    _defineProperty$3(_assertThisInitialized$3(_this), "node", null);
+	    _defineProperty$3(_assertThisInitialized$3(_this), "handleRef", function (ref) {
+	      _this.node = ref;
+	    });
+	    return _this;
+	  }
+	  _createClass$3(Track, [{
+	    key: "render",
+	    value: function render() {
+	      var slides = renderSlides(this.props);
+	      var _this$props = this.props,
+	        onMouseEnter = _this$props.onMouseEnter,
+	        onMouseOver = _this$props.onMouseOver,
+	        onMouseLeave = _this$props.onMouseLeave;
+	      var mouseEvents = {
+	        onMouseEnter: onMouseEnter,
+	        onMouseOver: onMouseOver,
+	        onMouseLeave: onMouseLeave
+	      };
+	      return /*#__PURE__*/_react$3["default"].createElement("div", _extends$2({
+	        ref: this.handleRef,
+	        className: "slick-track",
+	        style: this.props.trackStyle
+	      }, mouseEvents), slides);
+	    }
+	  }]);
+	  return Track;
+	}(_react$3["default"].PureComponent);
+	track.Track = Track;
+
+	var dots = {};
+
+	function _typeof$2(obj) {
+	  "@babel/helpers - typeof";
+
+	  return _typeof$2 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+	    return typeof obj;
+	  } : function (obj) {
+	    return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+	  }, _typeof$2(obj);
+	}
+	Object.defineProperty(dots, "__esModule", {
+	  value: true
+	});
+	dots.Dots = void 0;
+	var _react$2 = _interopRequireDefault$2(reactExports);
+	var _classnames$2 = _interopRequireDefault$2(classnamesExports);
+	var _innerSliderUtils$2 = innerSliderUtils;
+	function _interopRequireDefault$2(obj) {
+	  return obj && obj.__esModule ? obj : {
+	    "default": obj
+	  };
+	}
+	function ownKeys$2(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    enumerableOnly && (symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    })), keys.push.apply(keys, symbols);
+	  }
+	  return keys;
+	}
+	function _objectSpread$2(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = null != arguments[i] ? arguments[i] : {};
+	    i % 2 ? ownKeys$2(Object(source), !0).forEach(function (key) {
+	      _defineProperty$2(target, key, source[key]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys$2(Object(source)).forEach(function (key) {
+	      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	    });
+	  }
+	  return target;
+	}
+	function _defineProperty$2(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+	function _classCallCheck$2(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+	function _defineProperties$2(target, props) {
+	  for (var i = 0; i < props.length; i++) {
+	    var descriptor = props[i];
+	    descriptor.enumerable = descriptor.enumerable || false;
+	    descriptor.configurable = true;
+	    if ("value" in descriptor) descriptor.writable = true;
+	    Object.defineProperty(target, descriptor.key, descriptor);
+	  }
+	}
+	function _createClass$2(Constructor, protoProps, staticProps) {
+	  if (protoProps) _defineProperties$2(Constructor.prototype, protoProps);
+	  if (staticProps) _defineProperties$2(Constructor, staticProps);
+	  Object.defineProperty(Constructor, "prototype", {
+	    writable: false
+	  });
+	  return Constructor;
+	}
+	function _inherits$2(subClass, superClass) {
+	  if (typeof superClass !== "function" && superClass !== null) {
+	    throw new TypeError("Super expression must either be null or a function");
+	  }
+	  subClass.prototype = Object.create(superClass && superClass.prototype, {
+	    constructor: {
+	      value: subClass,
+	      writable: true,
+	      configurable: true
+	    }
+	  });
+	  Object.defineProperty(subClass, "prototype", {
+	    writable: false
+	  });
+	  if (superClass) _setPrototypeOf$2(subClass, superClass);
+	}
+	function _setPrototypeOf$2(o, p) {
+	  _setPrototypeOf$2 = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+	    o.__proto__ = p;
+	    return o;
+	  };
+	  return _setPrototypeOf$2(o, p);
+	}
+	function _createSuper$2(Derived) {
+	  var hasNativeReflectConstruct = _isNativeReflectConstruct$2();
+	  return function _createSuperInternal() {
+	    var Super = _getPrototypeOf$2(Derived),
+	      result;
+	    if (hasNativeReflectConstruct) {
+	      var NewTarget = _getPrototypeOf$2(this).constructor;
+	      result = Reflect.construct(Super, arguments, NewTarget);
+	    } else {
+	      result = Super.apply(this, arguments);
+	    }
+	    return _possibleConstructorReturn$2(this, result);
+	  };
+	}
+	function _possibleConstructorReturn$2(self, call) {
+	  if (call && (_typeof$2(call) === "object" || typeof call === "function")) {
+	    return call;
+	  } else if (call !== void 0) {
+	    throw new TypeError("Derived constructors may only return object or undefined");
+	  }
+	  return _assertThisInitialized$2(self);
+	}
+	function _assertThisInitialized$2(self) {
+	  if (self === void 0) {
+	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  }
+	  return self;
+	}
+	function _isNativeReflectConstruct$2() {
+	  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+	  if (Reflect.construct.sham) return false;
+	  if (typeof Proxy === "function") return true;
+	  try {
+	    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}));
+	    return true;
+	  } catch (e) {
+	    return false;
+	  }
+	}
+	function _getPrototypeOf$2(o) {
+	  _getPrototypeOf$2 = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+	    return o.__proto__ || Object.getPrototypeOf(o);
+	  };
+	  return _getPrototypeOf$2(o);
+	}
+	var getDotCount = function getDotCount(spec) {
+	  var dots;
+	  if (spec.infinite) {
+	    dots = Math.ceil(spec.slideCount / spec.slidesToScroll);
+	  } else {
+	    dots = Math.ceil((spec.slideCount - spec.slidesToShow) / spec.slidesToScroll) + 1;
+	  }
+	  return dots;
+	};
+	var Dots = /*#__PURE__*/function (_React$PureComponent) {
+	  _inherits$2(Dots, _React$PureComponent);
+	  var _super = _createSuper$2(Dots);
+	  function Dots() {
+	    _classCallCheck$2(this, Dots);
+	    return _super.apply(this, arguments);
+	  }
+	  _createClass$2(Dots, [{
+	    key: "clickHandler",
+	    value: function clickHandler(options, e) {
+	      // In Autoplay the focus stays on clicked button even after transition
+	      // to next slide. That only goes away by click somewhere outside
+	      e.preventDefault();
+	      this.props.clickHandler(options);
+	    }
+	  }, {
+	    key: "render",
+	    value: function render() {
+	      var _this$props = this.props,
+	        onMouseEnter = _this$props.onMouseEnter,
+	        onMouseOver = _this$props.onMouseOver,
+	        onMouseLeave = _this$props.onMouseLeave,
+	        infinite = _this$props.infinite,
+	        slidesToScroll = _this$props.slidesToScroll,
+	        slidesToShow = _this$props.slidesToShow,
+	        slideCount = _this$props.slideCount,
+	        currentSlide = _this$props.currentSlide;
+	      var dotCount = getDotCount({
+	        slideCount: slideCount,
+	        slidesToScroll: slidesToScroll,
+	        slidesToShow: slidesToShow,
+	        infinite: infinite
+	      });
+	      var mouseEvents = {
+	        onMouseEnter: onMouseEnter,
+	        onMouseOver: onMouseOver,
+	        onMouseLeave: onMouseLeave
+	      };
+	      var dots = [];
+	      for (var i = 0; i < dotCount; i++) {
+	        var _rightBound = (i + 1) * slidesToScroll - 1;
+	        var rightBound = infinite ? _rightBound : (0, _innerSliderUtils$2.clamp)(_rightBound, 0, slideCount - 1);
+	        var _leftBound = rightBound - (slidesToScroll - 1);
+	        var leftBound = infinite ? _leftBound : (0, _innerSliderUtils$2.clamp)(_leftBound, 0, slideCount - 1);
+	        var className = (0, _classnames$2["default"])({
+	          "slick-active": infinite ? currentSlide >= leftBound && currentSlide <= rightBound : currentSlide === leftBound
+	        });
+	        var dotOptions = {
+	          message: "dots",
+	          index: i,
+	          slidesToScroll: slidesToScroll,
+	          currentSlide: currentSlide
+	        };
+	        var onClick = this.clickHandler.bind(this, dotOptions);
+	        dots = dots.concat( /*#__PURE__*/_react$2["default"].createElement("li", {
+	          key: i,
+	          className: className
+	        }, /*#__PURE__*/_react$2["default"].cloneElement(this.props.customPaging(i), {
+	          onClick: onClick
+	        })));
+	      }
+	      return /*#__PURE__*/_react$2["default"].cloneElement(this.props.appendDots(dots), _objectSpread$2({
+	        className: this.props.dotsClass
+	      }, mouseEvents));
+	    }
+	  }]);
+	  return Dots;
+	}(_react$2["default"].PureComponent);
+	dots.Dots = Dots;
+
+	var arrows = {};
+
+	function _typeof$1(obj) {
+	  "@babel/helpers - typeof";
+
+	  return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+	    return typeof obj;
+	  } : function (obj) {
+	    return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+	  }, _typeof$1(obj);
+	}
+	Object.defineProperty(arrows, "__esModule", {
+	  value: true
+	});
+	arrows.PrevArrow = arrows.NextArrow = void 0;
+	var _react$1 = _interopRequireDefault$1(reactExports);
+	var _classnames$1 = _interopRequireDefault$1(classnamesExports);
+	var _innerSliderUtils$1 = innerSliderUtils;
+	function _interopRequireDefault$1(obj) {
+	  return obj && obj.__esModule ? obj : {
+	    "default": obj
+	  };
+	}
+	function _extends$1() {
+	  _extends$1 = Object.assign || function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends$1.apply(this, arguments);
+	}
+	function ownKeys$1(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    enumerableOnly && (symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    })), keys.push.apply(keys, symbols);
+	  }
+	  return keys;
+	}
+	function _objectSpread$1(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = null != arguments[i] ? arguments[i] : {};
+	    i % 2 ? ownKeys$1(Object(source), !0).forEach(function (key) {
+	      _defineProperty$1(target, key, source[key]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys$1(Object(source)).forEach(function (key) {
+	      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	    });
+	  }
+	  return target;
+	}
+	function _defineProperty$1(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+	function _classCallCheck$1(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+	function _defineProperties$1(target, props) {
+	  for (var i = 0; i < props.length; i++) {
+	    var descriptor = props[i];
+	    descriptor.enumerable = descriptor.enumerable || false;
+	    descriptor.configurable = true;
+	    if ("value" in descriptor) descriptor.writable = true;
+	    Object.defineProperty(target, descriptor.key, descriptor);
+	  }
+	}
+	function _createClass$1(Constructor, protoProps, staticProps) {
+	  if (protoProps) _defineProperties$1(Constructor.prototype, protoProps);
+	  if (staticProps) _defineProperties$1(Constructor, staticProps);
+	  Object.defineProperty(Constructor, "prototype", {
+	    writable: false
+	  });
+	  return Constructor;
+	}
+	function _inherits$1(subClass, superClass) {
+	  if (typeof superClass !== "function" && superClass !== null) {
+	    throw new TypeError("Super expression must either be null or a function");
+	  }
+	  subClass.prototype = Object.create(superClass && superClass.prototype, {
+	    constructor: {
+	      value: subClass,
+	      writable: true,
+	      configurable: true
+	    }
+	  });
+	  Object.defineProperty(subClass, "prototype", {
+	    writable: false
+	  });
+	  if (superClass) _setPrototypeOf$1(subClass, superClass);
+	}
+	function _setPrototypeOf$1(o, p) {
+	  _setPrototypeOf$1 = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+	    o.__proto__ = p;
+	    return o;
+	  };
+	  return _setPrototypeOf$1(o, p);
+	}
+	function _createSuper$1(Derived) {
+	  var hasNativeReflectConstruct = _isNativeReflectConstruct$1();
+	  return function _createSuperInternal() {
+	    var Super = _getPrototypeOf$1(Derived),
+	      result;
+	    if (hasNativeReflectConstruct) {
+	      var NewTarget = _getPrototypeOf$1(this).constructor;
+	      result = Reflect.construct(Super, arguments, NewTarget);
+	    } else {
+	      result = Super.apply(this, arguments);
+	    }
+	    return _possibleConstructorReturn$1(this, result);
+	  };
+	}
+	function _possibleConstructorReturn$1(self, call) {
+	  if (call && (_typeof$1(call) === "object" || typeof call === "function")) {
+	    return call;
+	  } else if (call !== void 0) {
+	    throw new TypeError("Derived constructors may only return object or undefined");
+	  }
+	  return _assertThisInitialized$1(self);
+	}
+	function _assertThisInitialized$1(self) {
+	  if (self === void 0) {
+	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  }
+	  return self;
+	}
+	function _isNativeReflectConstruct$1() {
+	  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+	  if (Reflect.construct.sham) return false;
+	  if (typeof Proxy === "function") return true;
+	  try {
+	    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}));
+	    return true;
+	  } catch (e) {
+	    return false;
+	  }
+	}
+	function _getPrototypeOf$1(o) {
+	  _getPrototypeOf$1 = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+	    return o.__proto__ || Object.getPrototypeOf(o);
+	  };
+	  return _getPrototypeOf$1(o);
+	}
+	var PrevArrow = /*#__PURE__*/function (_React$PureComponent) {
+	  _inherits$1(PrevArrow, _React$PureComponent);
+	  var _super = _createSuper$1(PrevArrow);
+	  function PrevArrow() {
+	    _classCallCheck$1(this, PrevArrow);
+	    return _super.apply(this, arguments);
+	  }
+	  _createClass$1(PrevArrow, [{
+	    key: "clickHandler",
+	    value: function clickHandler(options, e) {
+	      if (e) {
+	        e.preventDefault();
+	      }
+	      this.props.clickHandler(options, e);
+	    }
+	  }, {
+	    key: "render",
+	    value: function render() {
+	      var prevClasses = {
+	        "slick-arrow": true,
+	        "slick-prev": true
+	      };
+	      var prevHandler = this.clickHandler.bind(this, {
+	        message: "previous"
+	      });
+	      if (!this.props.infinite && (this.props.currentSlide === 0 || this.props.slideCount <= this.props.slidesToShow)) {
+	        prevClasses["slick-disabled"] = true;
+	        prevHandler = null;
+	      }
+	      var prevArrowProps = {
+	        key: "0",
+	        "data-role": "none",
+	        className: (0, _classnames$1["default"])(prevClasses),
+	        style: {
+	          display: "block"
+	        },
+	        onClick: prevHandler
+	      };
+	      var customProps = {
+	        currentSlide: this.props.currentSlide,
+	        slideCount: this.props.slideCount
+	      };
+	      var prevArrow;
+	      if (this.props.prevArrow) {
+	        prevArrow = /*#__PURE__*/_react$1["default"].cloneElement(this.props.prevArrow, _objectSpread$1(_objectSpread$1({}, prevArrowProps), customProps));
+	      } else {
+	        prevArrow = /*#__PURE__*/_react$1["default"].createElement("button", _extends$1({
+	          key: "0",
+	          type: "button"
+	        }, prevArrowProps), " ", "Previous");
+	      }
+	      return prevArrow;
+	    }
+	  }]);
+	  return PrevArrow;
+	}(_react$1["default"].PureComponent);
+	arrows.PrevArrow = PrevArrow;
+	var NextArrow = /*#__PURE__*/function (_React$PureComponent2) {
+	  _inherits$1(NextArrow, _React$PureComponent2);
+	  var _super2 = _createSuper$1(NextArrow);
+	  function NextArrow() {
+	    _classCallCheck$1(this, NextArrow);
+	    return _super2.apply(this, arguments);
+	  }
+	  _createClass$1(NextArrow, [{
+	    key: "clickHandler",
+	    value: function clickHandler(options, e) {
+	      if (e) {
+	        e.preventDefault();
+	      }
+	      this.props.clickHandler(options, e);
+	    }
+	  }, {
+	    key: "render",
+	    value: function render() {
+	      var nextClasses = {
+	        "slick-arrow": true,
+	        "slick-next": true
+	      };
+	      var nextHandler = this.clickHandler.bind(this, {
+	        message: "next"
+	      });
+	      if (!(0, _innerSliderUtils$1.canGoNext)(this.props)) {
+	        nextClasses["slick-disabled"] = true;
+	        nextHandler = null;
+	      }
+	      var nextArrowProps = {
+	        key: "1",
+	        "data-role": "none",
+	        className: (0, _classnames$1["default"])(nextClasses),
+	        style: {
+	          display: "block"
+	        },
+	        onClick: nextHandler
+	      };
+	      var customProps = {
+	        currentSlide: this.props.currentSlide,
+	        slideCount: this.props.slideCount
+	      };
+	      var nextArrow;
+	      if (this.props.nextArrow) {
+	        nextArrow = /*#__PURE__*/_react$1["default"].cloneElement(this.props.nextArrow, _objectSpread$1(_objectSpread$1({}, nextArrowProps), customProps));
+	      } else {
+	        nextArrow = /*#__PURE__*/_react$1["default"].createElement("button", _extends$1({
+	          key: "1",
+	          type: "button"
+	        }, nextArrowProps), " ", "Next");
+	      }
+	      return nextArrow;
+	    }
+	  }]);
+	  return NextArrow;
+	}(_react$1["default"].PureComponent);
+	arrows.NextArrow = NextArrow;
+
+	/**
+	 * A collection of shims that provide minimal functionality of the ES6 collections.
+	 *
+	 * These implementations are not meant to be used outside of the ResizeObserver
+	 * modules as they cover only a limited range of use cases.
+	 */
+	/* eslint-disable require-jsdoc, valid-jsdoc */
+	var MapShim = function () {
+	  if (typeof Map !== 'undefined') {
+	    return Map;
+	  }
+	  /**
+	   * Returns index in provided array that matches the specified key.
+	   *
+	   * @param {Array<Array>} arr
+	   * @param {*} key
+	   * @returns {number}
+	   */
+	  function getIndex(arr, key) {
+	    var result = -1;
+	    arr.some(function (entry, index) {
+	      if (entry[0] === key) {
+	        result = index;
+	        return true;
+	      }
+	      return false;
+	    });
+	    return result;
+	  }
+	  return (/** @class */function () {
+	      function class_1() {
+	        this.__entries__ = [];
+	      }
+	      Object.defineProperty(class_1.prototype, "size", {
+	        /**
+	         * @returns {boolean}
+	         */
+	        get: function () {
+	          return this.__entries__.length;
+	        },
+	        enumerable: true,
+	        configurable: true
+	      });
+	      /**
+	       * @param {*} key
+	       * @returns {*}
+	       */
+	      class_1.prototype.get = function (key) {
+	        var index = getIndex(this.__entries__, key);
+	        var entry = this.__entries__[index];
+	        return entry && entry[1];
+	      };
+	      /**
+	       * @param {*} key
+	       * @param {*} value
+	       * @returns {void}
+	       */
+	      class_1.prototype.set = function (key, value) {
+	        var index = getIndex(this.__entries__, key);
+	        if (~index) {
+	          this.__entries__[index][1] = value;
+	        } else {
+	          this.__entries__.push([key, value]);
+	        }
+	      };
+	      /**
+	       * @param {*} key
+	       * @returns {void}
+	       */
+	      class_1.prototype.delete = function (key) {
+	        var entries = this.__entries__;
+	        var index = getIndex(entries, key);
+	        if (~index) {
+	          entries.splice(index, 1);
+	        }
+	      };
+	      /**
+	       * @param {*} key
+	       * @returns {void}
+	       */
+	      class_1.prototype.has = function (key) {
+	        return !!~getIndex(this.__entries__, key);
+	      };
+	      /**
+	       * @returns {void}
+	       */
+	      class_1.prototype.clear = function () {
+	        this.__entries__.splice(0);
+	      };
+	      /**
+	       * @param {Function} callback
+	       * @param {*} [ctx=null]
+	       * @returns {void}
+	       */
+	      class_1.prototype.forEach = function (callback, ctx) {
+	        if (ctx === void 0) {
+	          ctx = null;
+	        }
+	        for (var _i = 0, _a = this.__entries__; _i < _a.length; _i++) {
+	          var entry = _a[_i];
+	          callback.call(ctx, entry[1], entry[0]);
+	        }
+	      };
+	      return class_1;
+	    }()
+	  );
+	}();
+
+	/**
+	 * Detects whether window and document objects are available in current environment.
+	 */
+	var isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined' && window.document === document;
+
+	// Returns global object of a current environment.
+	var global$1 = function () {
+	  if (typeof global !== 'undefined' && global.Math === Math) {
+	    return global;
+	  }
+	  if (typeof self !== 'undefined' && self.Math === Math) {
+	    return self;
+	  }
+	  if (typeof window !== 'undefined' && window.Math === Math) {
+	    return window;
+	  }
+	  // eslint-disable-next-line no-new-func
+	  return Function('return this')();
+	}();
+
+	/**
+	 * A shim for the requestAnimationFrame which falls back to the setTimeout if
+	 * first one is not supported.
+	 *
+	 * @returns {number} Requests' identifier.
+	 */
+	var requestAnimationFrame$1 = function () {
+	  if (typeof requestAnimationFrame === 'function') {
+	    // It's required to use a bounded function because IE sometimes throws
+	    // an "Invalid calling object" error if rAF is invoked without the global
+	    // object on the left hand side.
+	    return requestAnimationFrame.bind(global$1);
+	  }
+	  return function (callback) {
+	    return setTimeout(function () {
+	      return callback(Date.now());
+	    }, 1000 / 60);
+	  };
+	}();
+
+	// Defines minimum timeout before adding a trailing call.
+	var trailingTimeout = 2;
+	/**
+	 * Creates a wrapper function which ensures that provided callback will be
+	 * invoked only once during the specified delay period.
+	 *
+	 * @param {Function} callback - Function to be invoked after the delay period.
+	 * @param {number} delay - Delay after which to invoke callback.
+	 * @returns {Function}
+	 */
+	function throttle(callback, delay) {
+	  var leadingCall = false,
+	    trailingCall = false,
+	    lastCallTime = 0;
+	  /**
+	   * Invokes the original callback function and schedules new invocation if
+	   * the "proxy" was called during current request.
+	   *
+	   * @returns {void}
+	   */
+	  function resolvePending() {
+	    if (leadingCall) {
+	      leadingCall = false;
+	      callback();
+	    }
+	    if (trailingCall) {
+	      proxy();
+	    }
+	  }
+	  /**
+	   * Callback invoked after the specified delay. It will further postpone
+	   * invocation of the original function delegating it to the
+	   * requestAnimationFrame.
+	   *
+	   * @returns {void}
+	   */
+	  function timeoutCallback() {
+	    requestAnimationFrame$1(resolvePending);
+	  }
+	  /**
+	   * Schedules invocation of the original function.
+	   *
+	   * @returns {void}
+	   */
+	  function proxy() {
+	    var timeStamp = Date.now();
+	    if (leadingCall) {
+	      // Reject immediately following calls.
+	      if (timeStamp - lastCallTime < trailingTimeout) {
+	        return;
+	      }
+	      // Schedule new call to be in invoked when the pending one is resolved.
+	      // This is important for "transitions" which never actually start
+	      // immediately so there is a chance that we might miss one if change
+	      // happens amids the pending invocation.
+	      trailingCall = true;
+	    } else {
+	      leadingCall = true;
+	      trailingCall = false;
+	      setTimeout(timeoutCallback, delay);
+	    }
+	    lastCallTime = timeStamp;
+	  }
+	  return proxy;
+	}
+
+	// Minimum delay before invoking the update of observers.
+	var REFRESH_DELAY = 20;
+	// A list of substrings of CSS properties used to find transition events that
+	// might affect dimensions of observed elements.
+	var transitionKeys = ['top', 'right', 'bottom', 'left', 'width', 'height', 'size', 'weight'];
+	// Check if MutationObserver is available.
+	var mutationObserverSupported = typeof MutationObserver !== 'undefined';
+	/**
+	 * Singleton controller class which handles updates of ResizeObserver instances.
+	 */
+	var ResizeObserverController = /** @class */function () {
+	  /**
+	   * Creates a new instance of ResizeObserverController.
+	   *
+	   * @private
+	   */
+	  function ResizeObserverController() {
+	    /**
+	     * Indicates whether DOM listeners have been added.
+	     *
+	     * @private {boolean}
+	     */
+	    this.connected_ = false;
+	    /**
+	     * Tells that controller has subscribed for Mutation Events.
+	     *
+	     * @private {boolean}
+	     */
+	    this.mutationEventsAdded_ = false;
+	    /**
+	     * Keeps reference to the instance of MutationObserver.
+	     *
+	     * @private {MutationObserver}
+	     */
+	    this.mutationsObserver_ = null;
+	    /**
+	     * A list of connected observers.
+	     *
+	     * @private {Array<ResizeObserverSPI>}
+	     */
+	    this.observers_ = [];
+	    this.onTransitionEnd_ = this.onTransitionEnd_.bind(this);
+	    this.refresh = throttle(this.refresh.bind(this), REFRESH_DELAY);
+	  }
+	  /**
+	   * Adds observer to observers list.
+	   *
+	   * @param {ResizeObserverSPI} observer - Observer to be added.
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.addObserver = function (observer) {
+	    if (!~this.observers_.indexOf(observer)) {
+	      this.observers_.push(observer);
+	    }
+	    // Add listeners if they haven't been added yet.
+	    if (!this.connected_) {
+	      this.connect_();
+	    }
+	  };
+	  /**
+	   * Removes observer from observers list.
+	   *
+	   * @param {ResizeObserverSPI} observer - Observer to be removed.
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.removeObserver = function (observer) {
+	    var observers = this.observers_;
+	    var index = observers.indexOf(observer);
+	    // Remove observer if it's present in registry.
+	    if (~index) {
+	      observers.splice(index, 1);
+	    }
+	    // Remove listeners if controller has no connected observers.
+	    if (!observers.length && this.connected_) {
+	      this.disconnect_();
+	    }
+	  };
+	  /**
+	   * Invokes the update of observers. It will continue running updates insofar
+	   * it detects changes.
+	   *
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.refresh = function () {
+	    var changesDetected = this.updateObservers_();
+	    // Continue running updates if changes have been detected as there might
+	    // be future ones caused by CSS transitions.
+	    if (changesDetected) {
+	      this.refresh();
+	    }
+	  };
+	  /**
+	   * Updates every observer from observers list and notifies them of queued
+	   * entries.
+	   *
+	   * @private
+	   * @returns {boolean} Returns "true" if any observer has detected changes in
+	   *      dimensions of it's elements.
+	   */
+	  ResizeObserverController.prototype.updateObservers_ = function () {
+	    // Collect observers that have active observations.
+	    var activeObservers = this.observers_.filter(function (observer) {
+	      return observer.gatherActive(), observer.hasActive();
+	    });
+	    // Deliver notifications in a separate cycle in order to avoid any
+	    // collisions between observers, e.g. when multiple instances of
+	    // ResizeObserver are tracking the same element and the callback of one
+	    // of them changes content dimensions of the observed target. Sometimes
+	    // this may result in notifications being blocked for the rest of observers.
+	    activeObservers.forEach(function (observer) {
+	      return observer.broadcastActive();
+	    });
+	    return activeObservers.length > 0;
+	  };
+	  /**
+	   * Initializes DOM listeners.
+	   *
+	   * @private
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.connect_ = function () {
+	    // Do nothing if running in a non-browser environment or if listeners
+	    // have been already added.
+	    if (!isBrowser || this.connected_) {
+	      return;
+	    }
+	    // Subscription to the "Transitionend" event is used as a workaround for
+	    // delayed transitions. This way it's possible to capture at least the
+	    // final state of an element.
+	    document.addEventListener('transitionend', this.onTransitionEnd_);
+	    window.addEventListener('resize', this.refresh);
+	    if (mutationObserverSupported) {
+	      this.mutationsObserver_ = new MutationObserver(this.refresh);
+	      this.mutationsObserver_.observe(document, {
+	        attributes: true,
+	        childList: true,
+	        characterData: true,
+	        subtree: true
+	      });
+	    } else {
+	      document.addEventListener('DOMSubtreeModified', this.refresh);
+	      this.mutationEventsAdded_ = true;
+	    }
+	    this.connected_ = true;
+	  };
+	  /**
+	   * Removes DOM listeners.
+	   *
+	   * @private
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.disconnect_ = function () {
+	    // Do nothing if running in a non-browser environment or if listeners
+	    // have been already removed.
+	    if (!isBrowser || !this.connected_) {
+	      return;
+	    }
+	    document.removeEventListener('transitionend', this.onTransitionEnd_);
+	    window.removeEventListener('resize', this.refresh);
+	    if (this.mutationsObserver_) {
+	      this.mutationsObserver_.disconnect();
+	    }
+	    if (this.mutationEventsAdded_) {
+	      document.removeEventListener('DOMSubtreeModified', this.refresh);
+	    }
+	    this.mutationsObserver_ = null;
+	    this.mutationEventsAdded_ = false;
+	    this.connected_ = false;
+	  };
+	  /**
+	   * "Transitionend" event handler.
+	   *
+	   * @private
+	   * @param {TransitionEvent} event
+	   * @returns {void}
+	   */
+	  ResizeObserverController.prototype.onTransitionEnd_ = function (_a) {
+	    var _b = _a.propertyName,
+	      propertyName = _b === void 0 ? '' : _b;
+	    // Detect whether transition may affect dimensions of an element.
+	    var isReflowProperty = transitionKeys.some(function (key) {
+	      return !!~propertyName.indexOf(key);
+	    });
+	    if (isReflowProperty) {
+	      this.refresh();
+	    }
+	  };
+	  /**
+	   * Returns instance of the ResizeObserverController.
+	   *
+	   * @returns {ResizeObserverController}
+	   */
+	  ResizeObserverController.getInstance = function () {
+	    if (!this.instance_) {
+	      this.instance_ = new ResizeObserverController();
+	    }
+	    return this.instance_;
+	  };
+	  /**
+	   * Holds reference to the controller's instance.
+	   *
+	   * @private {ResizeObserverController}
+	   */
+	  ResizeObserverController.instance_ = null;
+	  return ResizeObserverController;
+	}();
+
+	/**
+	 * Defines non-writable/enumerable properties of the provided target object.
+	 *
+	 * @param {Object} target - Object for which to define properties.
+	 * @param {Object} props - Properties to be defined.
+	 * @returns {Object} Target object.
+	 */
+	var defineConfigurable = function (target, props) {
+	  for (var _i = 0, _a = Object.keys(props); _i < _a.length; _i++) {
+	    var key = _a[_i];
+	    Object.defineProperty(target, key, {
+	      value: props[key],
+	      enumerable: false,
+	      writable: false,
+	      configurable: true
+	    });
+	  }
+	  return target;
+	};
+
+	/**
+	 * Returns the global object associated with provided element.
+	 *
+	 * @param {Object} target
+	 * @returns {Object}
+	 */
+	var getWindowOf = function (target) {
+	  // Assume that the element is an instance of Node, which means that it
+	  // has the "ownerDocument" property from which we can retrieve a
+	  // corresponding global object.
+	  var ownerGlobal = target && target.ownerDocument && target.ownerDocument.defaultView;
+	  // Return the local global object if it's not possible extract one from
+	  // provided element.
+	  return ownerGlobal || global$1;
+	};
+
+	// Placeholder of an empty content rectangle.
+	var emptyRect = createRectInit(0, 0, 0, 0);
+	/**
+	 * Converts provided string to a number.
+	 *
+	 * @param {number|string} value
+	 * @returns {number}
+	 */
+	function toFloat(value) {
+	  return parseFloat(value) || 0;
+	}
+	/**
+	 * Extracts borders size from provided styles.
+	 *
+	 * @param {CSSStyleDeclaration} styles
+	 * @param {...string} positions - Borders positions (top, right, ...)
+	 * @returns {number}
+	 */
+	function getBordersSize(styles) {
+	  var positions = [];
+	  for (var _i = 1; _i < arguments.length; _i++) {
+	    positions[_i - 1] = arguments[_i];
+	  }
+	  return positions.reduce(function (size, position) {
+	    var value = styles['border-' + position + '-width'];
+	    return size + toFloat(value);
+	  }, 0);
+	}
+	/**
+	 * Extracts paddings sizes from provided styles.
+	 *
+	 * @param {CSSStyleDeclaration} styles
+	 * @returns {Object} Paddings box.
+	 */
+	function getPaddings(styles) {
+	  var positions = ['top', 'right', 'bottom', 'left'];
+	  var paddings = {};
+	  for (var _i = 0, positions_1 = positions; _i < positions_1.length; _i++) {
+	    var position = positions_1[_i];
+	    var value = styles['padding-' + position];
+	    paddings[position] = toFloat(value);
+	  }
+	  return paddings;
+	}
+	/**
+	 * Calculates content rectangle of provided SVG element.
+	 *
+	 * @param {SVGGraphicsElement} target - Element content rectangle of which needs
+	 *      to be calculated.
+	 * @returns {DOMRectInit}
+	 */
+	function getSVGContentRect(target) {
+	  var bbox = target.getBBox();
+	  return createRectInit(0, 0, bbox.width, bbox.height);
+	}
+	/**
+	 * Calculates content rectangle of provided HTMLElement.
+	 *
+	 * @param {HTMLElement} target - Element for which to calculate the content rectangle.
+	 * @returns {DOMRectInit}
+	 */
+	function getHTMLElementContentRect(target) {
+	  // Client width & height properties can't be
+	  // used exclusively as they provide rounded values.
+	  var clientWidth = target.clientWidth,
+	    clientHeight = target.clientHeight;
+	  // By this condition we can catch all non-replaced inline, hidden and
+	  // detached elements. Though elements with width & height properties less
+	  // than 0.5 will be discarded as well.
+	  //
+	  // Without it we would need to implement separate methods for each of
+	  // those cases and it's not possible to perform a precise and performance
+	  // effective test for hidden elements. E.g. even jQuery's ':visible' filter
+	  // gives wrong results for elements with width & height less than 0.5.
+	  if (!clientWidth && !clientHeight) {
+	    return emptyRect;
+	  }
+	  var styles = getWindowOf(target).getComputedStyle(target);
+	  var paddings = getPaddings(styles);
+	  var horizPad = paddings.left + paddings.right;
+	  var vertPad = paddings.top + paddings.bottom;
+	  // Computed styles of width & height are being used because they are the
+	  // only dimensions available to JS that contain non-rounded values. It could
+	  // be possible to utilize the getBoundingClientRect if only it's data wasn't
+	  // affected by CSS transformations let alone paddings, borders and scroll bars.
+	  var width = toFloat(styles.width),
+	    height = toFloat(styles.height);
+	  // Width & height include paddings and borders when the 'border-box' box
+	  // model is applied (except for IE).
+	  if (styles.boxSizing === 'border-box') {
+	    // Following conditions are required to handle Internet Explorer which
+	    // doesn't include paddings and borders to computed CSS dimensions.
+	    //
+	    // We can say that if CSS dimensions + paddings are equal to the "client"
+	    // properties then it's either IE, and thus we don't need to subtract
+	    // anything, or an element merely doesn't have paddings/borders styles.
+	    if (Math.round(width + horizPad) !== clientWidth) {
+	      width -= getBordersSize(styles, 'left', 'right') + horizPad;
+	    }
+	    if (Math.round(height + vertPad) !== clientHeight) {
+	      height -= getBordersSize(styles, 'top', 'bottom') + vertPad;
+	    }
+	  }
+	  // Following steps can't be applied to the document's root element as its
+	  // client[Width/Height] properties represent viewport area of the window.
+	  // Besides, it's as well not necessary as the <html> itself neither has
+	  // rendered scroll bars nor it can be clipped.
+	  if (!isDocumentElement(target)) {
+	    // In some browsers (only in Firefox, actually) CSS width & height
+	    // include scroll bars size which can be removed at this step as scroll
+	    // bars are the only difference between rounded dimensions + paddings
+	    // and "client" properties, though that is not always true in Chrome.
+	    var vertScrollbar = Math.round(width + horizPad) - clientWidth;
+	    var horizScrollbar = Math.round(height + vertPad) - clientHeight;
+	    // Chrome has a rather weird rounding of "client" properties.
+	    // E.g. for an element with content width of 314.2px it sometimes gives
+	    // the client width of 315px and for the width of 314.7px it may give
+	    // 314px. And it doesn't happen all the time. So just ignore this delta
+	    // as a non-relevant.
+	    if (Math.abs(vertScrollbar) !== 1) {
+	      width -= vertScrollbar;
+	    }
+	    if (Math.abs(horizScrollbar) !== 1) {
+	      height -= horizScrollbar;
+	    }
+	  }
+	  return createRectInit(paddings.left, paddings.top, width, height);
+	}
+	/**
+	 * Checks whether provided element is an instance of the SVGGraphicsElement.
+	 *
+	 * @param {Element} target - Element to be checked.
+	 * @returns {boolean}
+	 */
+	var isSVGGraphicsElement = function () {
+	  // Some browsers, namely IE and Edge, don't have the SVGGraphicsElement
+	  // interface.
+	  if (typeof SVGGraphicsElement !== 'undefined') {
+	    return function (target) {
+	      return target instanceof getWindowOf(target).SVGGraphicsElement;
+	    };
+	  }
+	  // If it's so, then check that element is at least an instance of the
+	  // SVGElement and that it has the "getBBox" method.
+	  // eslint-disable-next-line no-extra-parens
+	  return function (target) {
+	    return target instanceof getWindowOf(target).SVGElement && typeof target.getBBox === 'function';
+	  };
+	}();
+	/**
+	 * Checks whether provided element is a document element (<html>).
+	 *
+	 * @param {Element} target - Element to be checked.
+	 * @returns {boolean}
+	 */
+	function isDocumentElement(target) {
+	  return target === getWindowOf(target).document.documentElement;
+	}
+	/**
+	 * Calculates an appropriate content rectangle for provided html or svg element.
+	 *
+	 * @param {Element} target - Element content rectangle of which needs to be calculated.
+	 * @returns {DOMRectInit}
+	 */
+	function getContentRect(target) {
+	  if (!isBrowser) {
+	    return emptyRect;
+	  }
+	  if (isSVGGraphicsElement(target)) {
+	    return getSVGContentRect(target);
+	  }
+	  return getHTMLElementContentRect(target);
+	}
+	/**
+	 * Creates rectangle with an interface of the DOMRectReadOnly.
+	 * Spec: https://drafts.fxtf.org/geometry/#domrectreadonly
+	 *
+	 * @param {DOMRectInit} rectInit - Object with rectangle's x/y coordinates and dimensions.
+	 * @returns {DOMRectReadOnly}
+	 */
+	function createReadOnlyRect(_a) {
+	  var x = _a.x,
+	    y = _a.y,
+	    width = _a.width,
+	    height = _a.height;
+	  // If DOMRectReadOnly is available use it as a prototype for the rectangle.
+	  var Constr = typeof DOMRectReadOnly !== 'undefined' ? DOMRectReadOnly : Object;
+	  var rect = Object.create(Constr.prototype);
+	  // Rectangle's properties are not writable and non-enumerable.
+	  defineConfigurable(rect, {
+	    x: x,
+	    y: y,
+	    width: width,
+	    height: height,
+	    top: y,
+	    right: x + width,
+	    bottom: height + y,
+	    left: x
+	  });
+	  return rect;
+	}
+	/**
+	 * Creates DOMRectInit object based on the provided dimensions and the x/y coordinates.
+	 * Spec: https://drafts.fxtf.org/geometry/#dictdef-domrectinit
+	 *
+	 * @param {number} x - X coordinate.
+	 * @param {number} y - Y coordinate.
+	 * @param {number} width - Rectangle's width.
+	 * @param {number} height - Rectangle's height.
+	 * @returns {DOMRectInit}
+	 */
+	function createRectInit(x, y, width, height) {
+	  return {
+	    x: x,
+	    y: y,
+	    width: width,
+	    height: height
+	  };
+	}
+
+	/**
+	 * Class that is responsible for computations of the content rectangle of
+	 * provided DOM element and for keeping track of it's changes.
+	 */
+	var ResizeObservation = /** @class */function () {
+	  /**
+	   * Creates an instance of ResizeObservation.
+	   *
+	   * @param {Element} target - Element to be observed.
+	   */
+	  function ResizeObservation(target) {
+	    /**
+	     * Broadcasted width of content rectangle.
+	     *
+	     * @type {number}
+	     */
+	    this.broadcastWidth = 0;
+	    /**
+	     * Broadcasted height of content rectangle.
+	     *
+	     * @type {number}
+	     */
+	    this.broadcastHeight = 0;
+	    /**
+	     * Reference to the last observed content rectangle.
+	     *
+	     * @private {DOMRectInit}
+	     */
+	    this.contentRect_ = createRectInit(0, 0, 0, 0);
+	    this.target = target;
+	  }
+	  /**
+	   * Updates content rectangle and tells whether it's width or height properties
+	   * have changed since the last broadcast.
+	   *
+	   * @returns {boolean}
+	   */
+	  ResizeObservation.prototype.isActive = function () {
+	    var rect = getContentRect(this.target);
+	    this.contentRect_ = rect;
+	    return rect.width !== this.broadcastWidth || rect.height !== this.broadcastHeight;
+	  };
+	  /**
+	   * Updates 'broadcastWidth' and 'broadcastHeight' properties with a data
+	   * from the corresponding properties of the last observed content rectangle.
+	   *
+	   * @returns {DOMRectInit} Last observed content rectangle.
+	   */
+	  ResizeObservation.prototype.broadcastRect = function () {
+	    var rect = this.contentRect_;
+	    this.broadcastWidth = rect.width;
+	    this.broadcastHeight = rect.height;
+	    return rect;
+	  };
+	  return ResizeObservation;
+	}();
+	var ResizeObserverEntry = /** @class */function () {
+	  /**
+	   * Creates an instance of ResizeObserverEntry.
+	   *
+	   * @param {Element} target - Element that is being observed.
+	   * @param {DOMRectInit} rectInit - Data of the element's content rectangle.
+	   */
+	  function ResizeObserverEntry(target, rectInit) {
+	    var contentRect = createReadOnlyRect(rectInit);
+	    // According to the specification following properties are not writable
+	    // and are also not enumerable in the native implementation.
+	    //
+	    // Property accessors are not being used as they'd require to define a
+	    // private WeakMap storage which may cause memory leaks in browsers that
+	    // don't support this type of collections.
+	    defineConfigurable(this, {
+	      target: target,
+	      contentRect: contentRect
+	    });
+	  }
+	  return ResizeObserverEntry;
+	}();
+	var ResizeObserverSPI = /** @class */function () {
+	  /**
+	   * Creates a new instance of ResizeObserver.
+	   *
+	   * @param {ResizeObserverCallback} callback - Callback function that is invoked
+	   *      when one of the observed elements changes it's content dimensions.
+	   * @param {ResizeObserverController} controller - Controller instance which
+	   *      is responsible for the updates of observer.
+	   * @param {ResizeObserver} callbackCtx - Reference to the public
+	   *      ResizeObserver instance which will be passed to callback function.
+	   */
+	  function ResizeObserverSPI(callback, controller, callbackCtx) {
+	    /**
+	     * Collection of resize observations that have detected changes in dimensions
+	     * of elements.
+	     *
+	     * @private {Array<ResizeObservation>}
+	     */
+	    this.activeObservations_ = [];
+	    /**
+	     * Registry of the ResizeObservation instances.
+	     *
+	     * @private {Map<Element, ResizeObservation>}
+	     */
+	    this.observations_ = new MapShim();
+	    if (typeof callback !== 'function') {
+	      throw new TypeError('The callback provided as parameter 1 is not a function.');
+	    }
+	    this.callback_ = callback;
+	    this.controller_ = controller;
+	    this.callbackCtx_ = callbackCtx;
+	  }
+	  /**
+	   * Starts observing provided element.
+	   *
+	   * @param {Element} target - Element to be observed.
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.observe = function (target) {
+	    if (!arguments.length) {
+	      throw new TypeError('1 argument required, but only 0 present.');
+	    }
+	    // Do nothing if current environment doesn't have the Element interface.
+	    if (typeof Element === 'undefined' || !(Element instanceof Object)) {
+	      return;
+	    }
+	    if (!(target instanceof getWindowOf(target).Element)) {
+	      throw new TypeError('parameter 1 is not of type "Element".');
+	    }
+	    var observations = this.observations_;
+	    // Do nothing if element is already being observed.
+	    if (observations.has(target)) {
+	      return;
+	    }
+	    observations.set(target, new ResizeObservation(target));
+	    this.controller_.addObserver(this);
+	    // Force the update of observations.
+	    this.controller_.refresh();
+	  };
+	  /**
+	   * Stops observing provided element.
+	   *
+	   * @param {Element} target - Element to stop observing.
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.unobserve = function (target) {
+	    if (!arguments.length) {
+	      throw new TypeError('1 argument required, but only 0 present.');
+	    }
+	    // Do nothing if current environment doesn't have the Element interface.
+	    if (typeof Element === 'undefined' || !(Element instanceof Object)) {
+	      return;
+	    }
+	    if (!(target instanceof getWindowOf(target).Element)) {
+	      throw new TypeError('parameter 1 is not of type "Element".');
+	    }
+	    var observations = this.observations_;
+	    // Do nothing if element is not being observed.
+	    if (!observations.has(target)) {
+	      return;
+	    }
+	    observations.delete(target);
+	    if (!observations.size) {
+	      this.controller_.removeObserver(this);
+	    }
+	  };
+	  /**
+	   * Stops observing all elements.
+	   *
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.disconnect = function () {
+	    this.clearActive();
+	    this.observations_.clear();
+	    this.controller_.removeObserver(this);
+	  };
+	  /**
+	   * Collects observation instances the associated element of which has changed
+	   * it's content rectangle.
+	   *
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.gatherActive = function () {
+	    var _this = this;
+	    this.clearActive();
+	    this.observations_.forEach(function (observation) {
+	      if (observation.isActive()) {
+	        _this.activeObservations_.push(observation);
+	      }
+	    });
+	  };
+	  /**
+	   * Invokes initial callback function with a list of ResizeObserverEntry
+	   * instances collected from active resize observations.
+	   *
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.broadcastActive = function () {
+	    // Do nothing if observer doesn't have active observations.
+	    if (!this.hasActive()) {
+	      return;
+	    }
+	    var ctx = this.callbackCtx_;
+	    // Create ResizeObserverEntry instance for every active observation.
+	    var entries = this.activeObservations_.map(function (observation) {
+	      return new ResizeObserverEntry(observation.target, observation.broadcastRect());
+	    });
+	    this.callback_.call(ctx, entries, ctx);
+	    this.clearActive();
+	  };
+	  /**
+	   * Clears the collection of active observations.
+	   *
+	   * @returns {void}
+	   */
+	  ResizeObserverSPI.prototype.clearActive = function () {
+	    this.activeObservations_.splice(0);
+	  };
+	  /**
+	   * Tells whether observer has active observations.
+	   *
+	   * @returns {boolean}
+	   */
+	  ResizeObserverSPI.prototype.hasActive = function () {
+	    return this.activeObservations_.length > 0;
+	  };
+	  return ResizeObserverSPI;
+	}();
+
+	// Registry of internal observers. If WeakMap is not available use current shim
+	// for the Map collection as it has all required methods and because WeakMap
+	// can't be fully polyfilled anyway.
+	var observers = typeof WeakMap !== 'undefined' ? new WeakMap() : new MapShim();
+	/**
+	 * ResizeObserver API. Encapsulates the ResizeObserver SPI implementation
+	 * exposing only those methods and properties that are defined in the spec.
+	 */
+	var ResizeObserver = /** @class */function () {
+	  /**
+	   * Creates a new instance of ResizeObserver.
+	   *
+	   * @param {ResizeObserverCallback} callback - Callback that is invoked when
+	   *      dimensions of the observed elements change.
+	   */
+	  function ResizeObserver(callback) {
+	    if (!(this instanceof ResizeObserver)) {
+	      throw new TypeError('Cannot call a class as a function.');
+	    }
+	    if (!arguments.length) {
+	      throw new TypeError('1 argument required, but only 0 present.');
+	    }
+	    var controller = ResizeObserverController.getInstance();
+	    var observer = new ResizeObserverSPI(callback, controller, this);
+	    observers.set(this, observer);
+	  }
+	  return ResizeObserver;
+	}();
+	// Expose public methods of ResizeObserver.
+	['observe', 'unobserve', 'disconnect'].forEach(function (method) {
+	  ResizeObserver.prototype[method] = function () {
+	    var _a;
+	    return (_a = observers.get(this))[method].apply(_a, arguments);
+	  };
+	});
+	var index = function () {
+	  // Export existing implementation if available.
+	  if (typeof global$1.ResizeObserver !== 'undefined') {
+	    return global$1.ResizeObserver;
+	  }
+	  return ResizeObserver;
+	}();
+
+	var ResizeObserver_es = /*#__PURE__*/Object.freeze({
+		__proto__: null,
+		'default': index
+	});
+
+	var require$$8 = /*@__PURE__*/getAugmentedNamespace(ResizeObserver_es);
+
+	Object.defineProperty(innerSlider, "__esModule", {
+	  value: true
+	});
+	innerSlider.InnerSlider = void 0;
+	var _react = _interopRequireDefault(reactExports);
+	var _initialState = _interopRequireDefault(initialState);
+	var _lodash = _interopRequireDefault(lodash_debounce);
+	var _classnames = _interopRequireDefault(classnamesExports);
+	var _innerSliderUtils = innerSliderUtils;
+	var _track = track;
+	var _dots = dots;
+	var _arrows = arrows;
+	var _resizeObserverPolyfill = _interopRequireDefault(require$$8);
+	function _interopRequireDefault(obj) {
+	  return obj && obj.__esModule ? obj : {
+	    "default": obj
+	  };
+	}
+	function _typeof(obj) {
+	  "@babel/helpers - typeof";
+
+	  return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+	    return typeof obj;
+	  } : function (obj) {
+	    return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+	  }, _typeof(obj);
+	}
+	function _extends() {
+	  _extends = Object.assign || function (target) {
+	    for (var i = 1; i < arguments.length; i++) {
+	      var source = arguments[i];
+	      for (var key in source) {
+	        if (Object.prototype.hasOwnProperty.call(source, key)) {
+	          target[key] = source[key];
+	        }
+	      }
+	    }
+	    return target;
+	  };
+	  return _extends.apply(this, arguments);
+	}
+	function _objectWithoutProperties(source, excluded) {
+	  if (source == null) return {};
+	  var target = _objectWithoutPropertiesLoose(source, excluded);
+	  var key, i;
+	  if (Object.getOwnPropertySymbols) {
+	    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
+	    for (i = 0; i < sourceSymbolKeys.length; i++) {
+	      key = sourceSymbolKeys[i];
+	      if (excluded.indexOf(key) >= 0) continue;
+	      if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue;
+	      target[key] = source[key];
+	    }
+	  }
+	  return target;
+	}
+	function _objectWithoutPropertiesLoose(source, excluded) {
+	  if (source == null) return {};
+	  var target = {};
+	  var sourceKeys = Object.keys(source);
+	  var key, i;
+	  for (i = 0; i < sourceKeys.length; i++) {
+	    key = sourceKeys[i];
+	    if (excluded.indexOf(key) >= 0) continue;
+	    target[key] = source[key];
+	  }
+	  return target;
+	}
+	function ownKeys(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    enumerableOnly && (symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    })), keys.push.apply(keys, symbols);
+	  }
+	  return keys;
+	}
+	function _objectSpread(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = null != arguments[i] ? arguments[i] : {};
+	    i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
+	      _defineProperty(target, key, source[key]);
+	    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
+	      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	    });
+	  }
+	  return target;
+	}
+	function _classCallCheck(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+	function _defineProperties(target, props) {
+	  for (var i = 0; i < props.length; i++) {
+	    var descriptor = props[i];
+	    descriptor.enumerable = descriptor.enumerable || false;
+	    descriptor.configurable = true;
+	    if ("value" in descriptor) descriptor.writable = true;
+	    Object.defineProperty(target, descriptor.key, descriptor);
+	  }
+	}
+	function _createClass(Constructor, protoProps, staticProps) {
+	  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+	  if (staticProps) _defineProperties(Constructor, staticProps);
+	  Object.defineProperty(Constructor, "prototype", {
+	    writable: false
+	  });
+	  return Constructor;
+	}
+	function _inherits(subClass, superClass) {
+	  if (typeof superClass !== "function" && superClass !== null) {
+	    throw new TypeError("Super expression must either be null or a function");
+	  }
+	  subClass.prototype = Object.create(superClass && superClass.prototype, {
+	    constructor: {
+	      value: subClass,
+	      writable: true,
+	      configurable: true
+	    }
+	  });
+	  Object.defineProperty(subClass, "prototype", {
+	    writable: false
+	  });
+	  if (superClass) _setPrototypeOf(subClass, superClass);
+	}
+	function _setPrototypeOf(o, p) {
+	  _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+	    o.__proto__ = p;
+	    return o;
+	  };
+	  return _setPrototypeOf(o, p);
+	}
+	function _createSuper(Derived) {
+	  var hasNativeReflectConstruct = _isNativeReflectConstruct();
+	  return function _createSuperInternal() {
+	    var Super = _getPrototypeOf(Derived),
+	      result;
+	    if (hasNativeReflectConstruct) {
+	      var NewTarget = _getPrototypeOf(this).constructor;
+	      result = Reflect.construct(Super, arguments, NewTarget);
+	    } else {
+	      result = Super.apply(this, arguments);
+	    }
+	    return _possibleConstructorReturn(this, result);
+	  };
+	}
+	function _possibleConstructorReturn(self, call) {
+	  if (call && (_typeof(call) === "object" || typeof call === "function")) {
+	    return call;
+	  } else if (call !== void 0) {
+	    throw new TypeError("Derived constructors may only return object or undefined");
+	  }
+	  return _assertThisInitialized(self);
+	}
+	function _assertThisInitialized(self) {
+	  if (self === void 0) {
+	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  }
+	  return self;
+	}
+	function _isNativeReflectConstruct() {
+	  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+	  if (Reflect.construct.sham) return false;
+	  if (typeof Proxy === "function") return true;
+	  try {
+	    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}));
+	    return true;
+	  } catch (e) {
+	    return false;
+	  }
+	}
+	function _getPrototypeOf(o) {
+	  _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+	    return o.__proto__ || Object.getPrototypeOf(o);
+	  };
+	  return _getPrototypeOf(o);
+	}
+	function _defineProperty(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+	  return obj;
+	}
+	var InnerSlider = /*#__PURE__*/function (_React$Component) {
+	  _inherits(InnerSlider, _React$Component);
+	  var _super = _createSuper(InnerSlider);
+	  function InnerSlider(props) {
+	    var _this;
+	    _classCallCheck(this, InnerSlider);
+	    _this = _super.call(this, props);
+	    _defineProperty(_assertThisInitialized(_this), "listRefHandler", function (ref) {
+	      return _this.list = ref;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "trackRefHandler", function (ref) {
+	      return _this.track = ref;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "adaptHeight", function () {
+	      if (_this.props.adaptiveHeight && _this.list) {
+	        var elem = _this.list.querySelector("[data-index=\"".concat(_this.state.currentSlide, "\"]"));
+	        _this.list.style.height = (0, _innerSliderUtils.getHeight)(elem) + "px";
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "componentDidMount", function () {
+	      _this.props.onInit && _this.props.onInit();
+	      if (_this.props.lazyLoad) {
+	        var slidesToLoad = (0, _innerSliderUtils.getOnDemandLazySlides)(_objectSpread(_objectSpread({}, _this.props), _this.state));
+	        if (slidesToLoad.length > 0) {
+	          _this.setState(function (prevState) {
+	            return {
+	              lazyLoadedList: prevState.lazyLoadedList.concat(slidesToLoad)
+	            };
+	          });
+	          if (_this.props.onLazyLoad) {
+	            _this.props.onLazyLoad(slidesToLoad);
+	          }
+	        }
+	      }
+	      var spec = _objectSpread({
+	        listRef: _this.list,
+	        trackRef: _this.track
+	      }, _this.props);
+	      _this.updateState(spec, true, function () {
+	        _this.adaptHeight();
+	        _this.props.autoplay && _this.autoPlay("update");
+	      });
+	      if (_this.props.lazyLoad === "progressive") {
+	        _this.lazyLoadTimer = setInterval(_this.progressiveLazyLoad, 1000);
+	      }
+	      _this.ro = new _resizeObserverPolyfill["default"](function () {
+	        if (_this.state.animating) {
+	          _this.onWindowResized(false); // don't set trackStyle hence don't break animation
+
+	          _this.callbackTimers.push(setTimeout(function () {
+	            return _this.onWindowResized();
+	          }, _this.props.speed));
+	        } else {
+	          _this.onWindowResized();
+	        }
+	      });
+	      _this.ro.observe(_this.list);
+	      document.querySelectorAll && Array.prototype.forEach.call(document.querySelectorAll(".slick-slide"), function (slide) {
+	        slide.onfocus = _this.props.pauseOnFocus ? _this.onSlideFocus : null;
+	        slide.onblur = _this.props.pauseOnFocus ? _this.onSlideBlur : null;
+	      });
+	      if (window.addEventListener) {
+	        window.addEventListener("resize", _this.onWindowResized);
+	      } else {
+	        window.attachEvent("onresize", _this.onWindowResized);
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "componentWillUnmount", function () {
+	      if (_this.animationEndCallback) {
+	        clearTimeout(_this.animationEndCallback);
+	      }
+	      if (_this.lazyLoadTimer) {
+	        clearInterval(_this.lazyLoadTimer);
+	      }
+	      if (_this.callbackTimers.length) {
+	        _this.callbackTimers.forEach(function (timer) {
+	          return clearTimeout(timer);
+	        });
+	        _this.callbackTimers = [];
+	      }
+	      if (window.addEventListener) {
+	        window.removeEventListener("resize", _this.onWindowResized);
+	      } else {
+	        window.detachEvent("onresize", _this.onWindowResized);
+	      }
+	      if (_this.autoplayTimer) {
+	        clearInterval(_this.autoplayTimer);
+	      }
+	      _this.ro.disconnect();
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "componentDidUpdate", function (prevProps) {
+	      _this.checkImagesLoad();
+	      _this.props.onReInit && _this.props.onReInit();
+	      if (_this.props.lazyLoad) {
+	        var slidesToLoad = (0, _innerSliderUtils.getOnDemandLazySlides)(_objectSpread(_objectSpread({}, _this.props), _this.state));
+	        if (slidesToLoad.length > 0) {
+	          _this.setState(function (prevState) {
+	            return {
+	              lazyLoadedList: prevState.lazyLoadedList.concat(slidesToLoad)
+	            };
+	          });
+	          if (_this.props.onLazyLoad) {
+	            _this.props.onLazyLoad(slidesToLoad);
+	          }
+	        }
+	      } // if (this.props.onLazyLoad) {
+	      //   this.props.onLazyLoad([leftMostSlide])
+	      // }
+
+	      _this.adaptHeight();
+	      var spec = _objectSpread(_objectSpread({
+	        listRef: _this.list,
+	        trackRef: _this.track
+	      }, _this.props), _this.state);
+	      var setTrackStyle = _this.didPropsChange(prevProps);
+	      setTrackStyle && _this.updateState(spec, setTrackStyle, function () {
+	        if (_this.state.currentSlide >= _react["default"].Children.count(_this.props.children)) {
+	          _this.changeSlide({
+	            message: "index",
+	            index: _react["default"].Children.count(_this.props.children) - _this.props.slidesToShow,
+	            currentSlide: _this.state.currentSlide
+	          });
+	        }
+	        if (_this.props.autoplay) {
+	          _this.autoPlay("update");
+	        } else {
+	          _this.pause("paused");
+	        }
+	      });
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onWindowResized", function (setTrackStyle) {
+	      if (_this.debouncedResize) _this.debouncedResize.cancel();
+	      _this.debouncedResize = (0, _lodash["default"])(function () {
+	        return _this.resizeWindow(setTrackStyle);
+	      }, 50);
+	      _this.debouncedResize();
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "resizeWindow", function () {
+	      var setTrackStyle = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
+	      var isTrackMounted = Boolean(_this.track && _this.track.node); // prevent warning: setting state on unmounted component (server side rendering)
+
+	      if (!isTrackMounted) return;
+	      var spec = _objectSpread(_objectSpread({
+	        listRef: _this.list,
+	        trackRef: _this.track
+	      }, _this.props), _this.state);
+	      _this.updateState(spec, setTrackStyle, function () {
+	        if (_this.props.autoplay) _this.autoPlay("update");else _this.pause("paused");
+	      }); // animating state should be cleared while resizing, otherwise autoplay stops working
+
+	      _this.setState({
+	        animating: false
+	      });
+	      clearTimeout(_this.animationEndCallback);
+	      delete _this.animationEndCallback;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "updateState", function (spec, setTrackStyle, callback) {
+	      var updatedState = (0, _innerSliderUtils.initializedState)(spec);
+	      spec = _objectSpread(_objectSpread(_objectSpread({}, spec), updatedState), {}, {
+	        slideIndex: updatedState.currentSlide
+	      });
+	      var targetLeft = (0, _innerSliderUtils.getTrackLeft)(spec);
+	      spec = _objectSpread(_objectSpread({}, spec), {}, {
+	        left: targetLeft
+	      });
+	      var trackStyle = (0, _innerSliderUtils.getTrackCSS)(spec);
+	      if (setTrackStyle || _react["default"].Children.count(_this.props.children) !== _react["default"].Children.count(spec.children)) {
+	        updatedState["trackStyle"] = trackStyle;
+	      }
+	      _this.setState(updatedState, callback);
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "ssrInit", function () {
+	      if (_this.props.variableWidth) {
+	        var _trackWidth = 0,
+	          _trackLeft = 0;
+	        var childrenWidths = [];
+	        var preClones = (0, _innerSliderUtils.getPreClones)(_objectSpread(_objectSpread(_objectSpread({}, _this.props), _this.state), {}, {
+	          slideCount: _this.props.children.length
+	        }));
+	        var postClones = (0, _innerSliderUtils.getPostClones)(_objectSpread(_objectSpread(_objectSpread({}, _this.props), _this.state), {}, {
+	          slideCount: _this.props.children.length
+	        }));
+	        _this.props.children.forEach(function (child) {
+	          childrenWidths.push(child.props.style.width);
+	          _trackWidth += child.props.style.width;
+	        });
+	        for (var i = 0; i < preClones; i++) {
+	          _trackLeft += childrenWidths[childrenWidths.length - 1 - i];
+	          _trackWidth += childrenWidths[childrenWidths.length - 1 - i];
+	        }
+	        for (var _i = 0; _i < postClones; _i++) {
+	          _trackWidth += childrenWidths[_i];
+	        }
+	        for (var _i2 = 0; _i2 < _this.state.currentSlide; _i2++) {
+	          _trackLeft += childrenWidths[_i2];
+	        }
+	        var _trackStyle = {
+	          width: _trackWidth + "px",
+	          left: -_trackLeft + "px"
+	        };
+	        if (_this.props.centerMode) {
+	          var currentWidth = "".concat(childrenWidths[_this.state.currentSlide], "px");
+	          _trackStyle.left = "calc(".concat(_trackStyle.left, " + (100% - ").concat(currentWidth, ") / 2 ) ");
+	        }
+	        return {
+	          trackStyle: _trackStyle
+	        };
+	      }
+	      var childrenCount = _react["default"].Children.count(_this.props.children);
+	      var spec = _objectSpread(_objectSpread(_objectSpread({}, _this.props), _this.state), {}, {
+	        slideCount: childrenCount
+	      });
+	      var slideCount = (0, _innerSliderUtils.getPreClones)(spec) + (0, _innerSliderUtils.getPostClones)(spec) + childrenCount;
+	      var trackWidth = 100 / _this.props.slidesToShow * slideCount;
+	      var slideWidth = 100 / slideCount;
+	      var trackLeft = -slideWidth * ((0, _innerSliderUtils.getPreClones)(spec) + _this.state.currentSlide) * trackWidth / 100;
+	      if (_this.props.centerMode) {
+	        trackLeft += (100 - slideWidth * trackWidth / 100) / 2;
+	      }
+	      var trackStyle = {
+	        width: trackWidth + "%",
+	        left: trackLeft + "%"
+	      };
+	      return {
+	        slideWidth: slideWidth + "%",
+	        trackStyle: trackStyle
+	      };
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "checkImagesLoad", function () {
+	      var images = _this.list && _this.list.querySelectorAll && _this.list.querySelectorAll(".slick-slide img") || [];
+	      var imagesCount = images.length,
+	        loadedCount = 0;
+	      Array.prototype.forEach.call(images, function (image) {
+	        var handler = function handler() {
+	          return ++loadedCount && loadedCount >= imagesCount && _this.onWindowResized();
+	        };
+	        if (!image.onclick) {
+	          image.onclick = function () {
+	            return image.parentNode.focus();
+	          };
+	        } else {
+	          var prevClickHandler = image.onclick;
+	          image.onclick = function () {
+	            prevClickHandler();
+	            image.parentNode.focus();
+	          };
+	        }
+	        if (!image.onload) {
+	          if (_this.props.lazyLoad) {
+	            image.onload = function () {
+	              _this.adaptHeight();
+	              _this.callbackTimers.push(setTimeout(_this.onWindowResized, _this.props.speed));
+	            };
+	          } else {
+	            image.onload = handler;
+	            image.onerror = function () {
+	              handler();
+	              _this.props.onLazyLoadError && _this.props.onLazyLoadError();
+	            };
+	          }
+	        }
+	      });
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "progressiveLazyLoad", function () {
+	      var slidesToLoad = [];
+	      var spec = _objectSpread(_objectSpread({}, _this.props), _this.state);
+	      for (var index = _this.state.currentSlide; index < _this.state.slideCount + (0, _innerSliderUtils.getPostClones)(spec); index++) {
+	        if (_this.state.lazyLoadedList.indexOf(index) < 0) {
+	          slidesToLoad.push(index);
+	          break;
+	        }
+	      }
+	      for (var _index = _this.state.currentSlide - 1; _index >= -(0, _innerSliderUtils.getPreClones)(spec); _index--) {
+	        if (_this.state.lazyLoadedList.indexOf(_index) < 0) {
+	          slidesToLoad.push(_index);
+	          break;
+	        }
+	      }
+	      if (slidesToLoad.length > 0) {
+	        _this.setState(function (state) {
+	          return {
+	            lazyLoadedList: state.lazyLoadedList.concat(slidesToLoad)
+	          };
+	        });
+	        if (_this.props.onLazyLoad) {
+	          _this.props.onLazyLoad(slidesToLoad);
+	        }
+	      } else {
+	        if (_this.lazyLoadTimer) {
+	          clearInterval(_this.lazyLoadTimer);
+	          delete _this.lazyLoadTimer;
+	        }
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "slideHandler", function (index) {
+	      var dontAnimate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	      var _this$props = _this.props,
+	        asNavFor = _this$props.asNavFor,
+	        beforeChange = _this$props.beforeChange,
+	        onLazyLoad = _this$props.onLazyLoad,
+	        speed = _this$props.speed,
+	        afterChange = _this$props.afterChange; // capture currentslide before state is updated
+
+	      var currentSlide = _this.state.currentSlide;
+	      var _slideHandler = (0, _innerSliderUtils.slideHandler)(_objectSpread(_objectSpread(_objectSpread({
+	          index: index
+	        }, _this.props), _this.state), {}, {
+	          trackRef: _this.track,
+	          useCSS: _this.props.useCSS && !dontAnimate
+	        })),
+	        state = _slideHandler.state,
+	        nextState = _slideHandler.nextState;
+	      if (!state) return;
+	      beforeChange && beforeChange(currentSlide, state.currentSlide);
+	      var slidesToLoad = state.lazyLoadedList.filter(function (value) {
+	        return _this.state.lazyLoadedList.indexOf(value) < 0;
+	      });
+	      onLazyLoad && slidesToLoad.length > 0 && onLazyLoad(slidesToLoad);
+	      if (!_this.props.waitForAnimate && _this.animationEndCallback) {
+	        clearTimeout(_this.animationEndCallback);
+	        afterChange && afterChange(currentSlide);
+	        delete _this.animationEndCallback;
+	      }
+	      _this.setState(state, function () {
+	        // asNavForIndex check is to avoid recursive calls of slideHandler in waitForAnimate=false mode
+	        if (asNavFor && _this.asNavForIndex !== index) {
+	          _this.asNavForIndex = index;
+	          asNavFor.innerSlider.slideHandler(index);
+	        }
+	        if (!nextState) return;
+	        _this.animationEndCallback = setTimeout(function () {
+	          var animating = nextState.animating,
+	            firstBatch = _objectWithoutProperties(nextState, ["animating"]);
+	          _this.setState(firstBatch, function () {
+	            _this.callbackTimers.push(setTimeout(function () {
+	              return _this.setState({
+	                animating: animating
+	              });
+	            }, 10));
+	            afterChange && afterChange(state.currentSlide);
+	            delete _this.animationEndCallback;
+	          });
+	        }, speed);
+	      });
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "changeSlide", function (options) {
+	      var dontAnimate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	      var spec = _objectSpread(_objectSpread({}, _this.props), _this.state);
+	      var targetSlide = (0, _innerSliderUtils.changeSlide)(spec, options);
+	      if (targetSlide !== 0 && !targetSlide) return;
+	      if (dontAnimate === true) {
+	        _this.slideHandler(targetSlide, dontAnimate);
+	      } else {
+	        _this.slideHandler(targetSlide);
+	      }
+	      _this.props.autoplay && _this.autoPlay("update");
+	      if (_this.props.focusOnSelect) {
+	        var nodes = _this.list.querySelectorAll(".slick-current");
+	        nodes[0] && nodes[0].focus();
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "clickHandler", function (e) {
+	      if (_this.clickable === false) {
+	        e.stopPropagation();
+	        e.preventDefault();
+	      }
+	      _this.clickable = true;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "keyHandler", function (e) {
+	      var dir = (0, _innerSliderUtils.keyHandler)(e, _this.props.accessibility, _this.props.rtl);
+	      dir !== "" && _this.changeSlide({
+	        message: dir
+	      });
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "selectHandler", function (options) {
+	      _this.changeSlide(options);
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "disableBodyScroll", function () {
+	      var preventDefault = function preventDefault(e) {
+	        e = e || window.event;
+	        if (e.preventDefault) e.preventDefault();
+	        e.returnValue = false;
+	      };
+	      window.ontouchmove = preventDefault;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "enableBodyScroll", function () {
+	      window.ontouchmove = null;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "swipeStart", function (e) {
+	      if (_this.props.verticalSwiping) {
+	        _this.disableBodyScroll();
+	      }
+	      var state = (0, _innerSliderUtils.swipeStart)(e, _this.props.swipe, _this.props.draggable);
+	      state !== "" && _this.setState(state);
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "swipeMove", function (e) {
+	      var state = (0, _innerSliderUtils.swipeMove)(e, _objectSpread(_objectSpread(_objectSpread({}, _this.props), _this.state), {}, {
+	        trackRef: _this.track,
+	        listRef: _this.list,
+	        slideIndex: _this.state.currentSlide
+	      }));
+	      if (!state) return;
+	      if (state["swiping"]) {
+	        _this.clickable = false;
+	      }
+	      _this.setState(state);
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "swipeEnd", function (e) {
+	      var state = (0, _innerSliderUtils.swipeEnd)(e, _objectSpread(_objectSpread(_objectSpread({}, _this.props), _this.state), {}, {
+	        trackRef: _this.track,
+	        listRef: _this.list,
+	        slideIndex: _this.state.currentSlide
+	      }));
+	      if (!state) return;
+	      var triggerSlideHandler = state["triggerSlideHandler"];
+	      delete state["triggerSlideHandler"];
+	      _this.setState(state);
+	      if (triggerSlideHandler === undefined) return;
+	      _this.slideHandler(triggerSlideHandler);
+	      if (_this.props.verticalSwiping) {
+	        _this.enableBodyScroll();
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "touchEnd", function (e) {
+	      _this.swipeEnd(e);
+	      _this.clickable = true;
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "slickPrev", function () {
+	      // this and fellow methods are wrapped in setTimeout
+	      // to make sure initialize setState has happened before
+	      // any of such methods are called
+	      _this.callbackTimers.push(setTimeout(function () {
+	        return _this.changeSlide({
+	          message: "previous"
+	        });
+	      }, 0));
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "slickNext", function () {
+	      _this.callbackTimers.push(setTimeout(function () {
+	        return _this.changeSlide({
+	          message: "next"
+	        });
+	      }, 0));
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "slickGoTo", function (slide) {
+	      var dontAnimate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	      slide = Number(slide);
+	      if (isNaN(slide)) return "";
+	      _this.callbackTimers.push(setTimeout(function () {
+	        return _this.changeSlide({
+	          message: "index",
+	          index: slide,
+	          currentSlide: _this.state.currentSlide
+	        }, dontAnimate);
+	      }, 0));
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "play", function () {
+	      var nextIndex;
+	      if (_this.props.rtl) {
+	        nextIndex = _this.state.currentSlide - _this.props.slidesToScroll;
+	      } else {
+	        if ((0, _innerSliderUtils.canGoNext)(_objectSpread(_objectSpread({}, _this.props), _this.state))) {
+	          nextIndex = _this.state.currentSlide + _this.props.slidesToScroll;
+	        } else {
+	          return false;
+	        }
+	      }
+	      _this.slideHandler(nextIndex);
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "autoPlay", function (playType) {
+	      if (_this.autoplayTimer) {
+	        clearInterval(_this.autoplayTimer);
+	      }
+	      var autoplaying = _this.state.autoplaying;
+	      if (playType === "update") {
+	        if (autoplaying === "hovered" || autoplaying === "focused" || autoplaying === "paused") {
+	          return;
+	        }
+	      } else if (playType === "leave") {
+	        if (autoplaying === "paused" || autoplaying === "focused") {
+	          return;
+	        }
+	      } else if (playType === "blur") {
+	        if (autoplaying === "paused" || autoplaying === "hovered") {
+	          return;
+	        }
+	      }
+	      _this.autoplayTimer = setInterval(_this.play, _this.props.autoplaySpeed + 50);
+	      _this.setState({
+	        autoplaying: "playing"
+	      });
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "pause", function (pauseType) {
+	      if (_this.autoplayTimer) {
+	        clearInterval(_this.autoplayTimer);
+	        _this.autoplayTimer = null;
+	      }
+	      var autoplaying = _this.state.autoplaying;
+	      if (pauseType === "paused") {
+	        _this.setState({
+	          autoplaying: "paused"
+	        });
+	      } else if (pauseType === "focused") {
+	        if (autoplaying === "hovered" || autoplaying === "playing") {
+	          _this.setState({
+	            autoplaying: "focused"
+	          });
+	        }
+	      } else {
+	        // pauseType  is 'hovered'
+	        if (autoplaying === "playing") {
+	          _this.setState({
+	            autoplaying: "hovered"
+	          });
+	        }
+	      }
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onDotsOver", function () {
+	      return _this.props.autoplay && _this.pause("hovered");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onDotsLeave", function () {
+	      return _this.props.autoplay && _this.state.autoplaying === "hovered" && _this.autoPlay("leave");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onTrackOver", function () {
+	      return _this.props.autoplay && _this.pause("hovered");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onTrackLeave", function () {
+	      return _this.props.autoplay && _this.state.autoplaying === "hovered" && _this.autoPlay("leave");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onSlideFocus", function () {
+	      return _this.props.autoplay && _this.pause("focused");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "onSlideBlur", function () {
+	      return _this.props.autoplay && _this.state.autoplaying === "focused" && _this.autoPlay("blur");
+	    });
+	    _defineProperty(_assertThisInitialized(_this), "render", function () {
+	      var className = (0, _classnames["default"])("slick-slider", _this.props.className, {
+	        "slick-vertical": _this.props.vertical,
+	        "slick-initialized": true
+	      });
+	      var spec = _objectSpread(_objectSpread({}, _this.props), _this.state);
+	      var trackProps = (0, _innerSliderUtils.extractObject)(spec, ["fade", "cssEase", "speed", "infinite", "centerMode", "focusOnSelect", "currentSlide", "lazyLoad", "lazyLoadedList", "rtl", "slideWidth", "slideHeight", "listHeight", "vertical", "slidesToShow", "slidesToScroll", "slideCount", "trackStyle", "variableWidth", "unslick", "centerPadding", "targetSlide", "useCSS"]);
+	      var pauseOnHover = _this.props.pauseOnHover;
+	      trackProps = _objectSpread(_objectSpread({}, trackProps), {}, {
+	        onMouseEnter: pauseOnHover ? _this.onTrackOver : null,
+	        onMouseLeave: pauseOnHover ? _this.onTrackLeave : null,
+	        onMouseOver: pauseOnHover ? _this.onTrackOver : null,
+	        focusOnSelect: _this.props.focusOnSelect && _this.clickable ? _this.selectHandler : null
+	      });
+	      var dots;
+	      if (_this.props.dots === true && _this.state.slideCount >= _this.props.slidesToShow) {
+	        var dotProps = (0, _innerSliderUtils.extractObject)(spec, ["dotsClass", "slideCount", "slidesToShow", "currentSlide", "slidesToScroll", "clickHandler", "children", "customPaging", "infinite", "appendDots"]);
+	        var pauseOnDotsHover = _this.props.pauseOnDotsHover;
+	        dotProps = _objectSpread(_objectSpread({}, dotProps), {}, {
+	          clickHandler: _this.changeSlide,
+	          onMouseEnter: pauseOnDotsHover ? _this.onDotsLeave : null,
+	          onMouseOver: pauseOnDotsHover ? _this.onDotsOver : null,
+	          onMouseLeave: pauseOnDotsHover ? _this.onDotsLeave : null
+	        });
+	        dots = /*#__PURE__*/_react["default"].createElement(_dots.Dots, dotProps);
+	      }
+	      var prevArrow, nextArrow;
+	      var arrowProps = (0, _innerSliderUtils.extractObject)(spec, ["infinite", "centerMode", "currentSlide", "slideCount", "slidesToShow", "prevArrow", "nextArrow"]);
+	      arrowProps.clickHandler = _this.changeSlide;
+	      if (_this.props.arrows) {
+	        prevArrow = /*#__PURE__*/_react["default"].createElement(_arrows.PrevArrow, arrowProps);
+	        nextArrow = /*#__PURE__*/_react["default"].createElement(_arrows.NextArrow, arrowProps);
+	      }
+	      var verticalHeightStyle = null;
+	      if (_this.props.vertical) {
+	        verticalHeightStyle = {
+	          height: _this.state.listHeight
+	        };
+	      }
+	      var centerPaddingStyle = null;
+	      if (_this.props.vertical === false) {
+	        if (_this.props.centerMode === true) {
+	          centerPaddingStyle = {
+	            padding: "0px " + _this.props.centerPadding
+	          };
+	        }
+	      } else {
+	        if (_this.props.centerMode === true) {
+	          centerPaddingStyle = {
+	            padding: _this.props.centerPadding + " 0px"
+	          };
+	        }
+	      }
+	      var listStyle = _objectSpread(_objectSpread({}, verticalHeightStyle), centerPaddingStyle);
+	      var touchMove = _this.props.touchMove;
+	      var listProps = {
+	        className: "slick-list",
+	        style: listStyle,
+	        onClick: _this.clickHandler,
+	        onMouseDown: touchMove ? _this.swipeStart : null,
+	        onMouseMove: _this.state.dragging && touchMove ? _this.swipeMove : null,
+	        onMouseUp: touchMove ? _this.swipeEnd : null,
+	        onMouseLeave: _this.state.dragging && touchMove ? _this.swipeEnd : null,
+	        onTouchStart: touchMove ? _this.swipeStart : null,
+	        onTouchMove: _this.state.dragging && touchMove ? _this.swipeMove : null,
+	        onTouchEnd: touchMove ? _this.touchEnd : null,
+	        onTouchCancel: _this.state.dragging && touchMove ? _this.swipeEnd : null,
+	        onKeyDown: _this.props.accessibility ? _this.keyHandler : null
+	      };
+	      var innerSliderProps = {
+	        className: className,
+	        dir: "ltr",
+	        style: _this.props.style
+	      };
+	      if (_this.props.unslick) {
+	        listProps = {
+	          className: "slick-list"
+	        };
+	        innerSliderProps = {
+	          className: className
+	        };
+	      }
+	      return /*#__PURE__*/_react["default"].createElement("div", innerSliderProps, !_this.props.unslick ? prevArrow : "", /*#__PURE__*/_react["default"].createElement("div", _extends({
+	        ref: _this.listRefHandler
+	      }, listProps), /*#__PURE__*/_react["default"].createElement(_track.Track, _extends({
+	        ref: _this.trackRefHandler
+	      }, trackProps), _this.props.children)), !_this.props.unslick ? nextArrow : "", !_this.props.unslick ? dots : "");
+	    });
+	    _this.list = null;
+	    _this.track = null;
+	    _this.state = _objectSpread(_objectSpread({}, _initialState["default"]), {}, {
+	      currentSlide: _this.props.initialSlide,
+	      slideCount: _react["default"].Children.count(_this.props.children)
+	    });
+	    _this.callbackTimers = [];
+	    _this.clickable = true;
+	    _this.debouncedResize = null;
+	    var ssrState = _this.ssrInit();
+	    _this.state = _objectSpread(_objectSpread({}, _this.state), ssrState);
+	    return _this;
+	  }
+	  _createClass(InnerSlider, [{
+	    key: "didPropsChange",
+	    value: function didPropsChange(prevProps) {
+	      var setTrackStyle = false;
+	      for (var _i3 = 0, _Object$keys = Object.keys(this.props); _i3 < _Object$keys.length; _i3++) {
+	        var key = _Object$keys[_i3];
+	        if (!prevProps.hasOwnProperty(key)) {
+	          setTrackStyle = true;
+	          break;
+	        }
+	        if (_typeof(prevProps[key]) === "object" || typeof prevProps[key] === "function") {
+	          continue;
+	        }
+	        if (prevProps[key] !== this.props[key]) {
+	          setTrackStyle = true;
+	          break;
+	        }
+	      }
+	      return setTrackStyle || _react["default"].Children.count(this.props.children) !== _react["default"].Children.count(prevProps.children);
+	    }
+	  }]);
+	  return InnerSlider;
+	}(_react["default"].Component);
+	innerSlider.InnerSlider = InnerSlider;
+
+	var camel2hyphen$1 = function (str) {
+	  return str.replace(/[A-Z]/g, function (match) {
+	    return '-' + match.toLowerCase();
+	  }).toLowerCase();
+	};
+	var camel2hyphen_1 = camel2hyphen$1;
+
+	var camel2hyphen = camel2hyphen_1;
+	var isDimension = function (feature) {
+	  var re = /[height|width]$/;
+	  return re.test(feature);
+	};
+	var obj2mq = function (obj) {
+	  var mq = '';
+	  var features = Object.keys(obj);
+	  features.forEach(function (feature, index) {
+	    var value = obj[feature];
+	    feature = camel2hyphen(feature);
+	    // Add px to dimension features
+	    if (isDimension(feature) && typeof value === 'number') {
+	      value = value + 'px';
+	    }
+	    if (value === true) {
+	      mq += feature;
+	    } else if (value === false) {
+	      mq += 'not ' + feature;
+	    } else {
+	      mq += '(' + feature + ': ' + value + ')';
+	    }
+	    if (index < features.length - 1) {
+	      mq += ' and ';
+	    }
+	  });
+	  return mq;
+	};
+	var json2mq = function (query) {
+	  var mq = '';
+	  if (typeof query === 'string') {
+	    return query;
+	  }
+	  // Handling array of media queries
+	  if (query instanceof Array) {
+	    query.forEach(function (q, index) {
+	      mq += obj2mq(q);
+	      if (index < query.length - 1) {
+	        mq += ', ';
+	      }
+	    });
+	    return mq;
+	  }
+	  // Handling single media query
+	  return obj2mq(query);
+	};
+	var json2mq_1 = json2mq;
+
+	var defaultProps = {};
+
+	(function (exports) {
+
+		Object.defineProperty(exports, "__esModule", {
+		  value: true
+		});
+		exports["default"] = void 0;
+		var _react = _interopRequireDefault(reactExports);
+		function _interopRequireDefault(obj) {
+		  return obj && obj.__esModule ? obj : {
+		    "default": obj
+		  };
+		}
+		var defaultProps = {
+		  accessibility: true,
+		  adaptiveHeight: false,
+		  afterChange: null,
+		  appendDots: function appendDots(dots) {
+		    return /*#__PURE__*/_react["default"].createElement("ul", {
+		      style: {
+		        display: "block"
+		      }
+		    }, dots);
+		  },
+		  arrows: true,
+		  autoplay: false,
+		  autoplaySpeed: 3000,
+		  beforeChange: null,
+		  centerMode: false,
+		  centerPadding: "50px",
+		  className: "",
+		  cssEase: "ease",
+		  customPaging: function customPaging(i) {
+		    return /*#__PURE__*/_react["default"].createElement("button", null, i + 1);
+		  },
+		  dots: false,
+		  dotsClass: "slick-dots",
+		  draggable: true,
+		  easing: "linear",
+		  edgeFriction: 0.35,
+		  fade: false,
+		  focusOnSelect: false,
+		  infinite: true,
+		  initialSlide: 0,
+		  lazyLoad: null,
+		  nextArrow: null,
+		  onEdge: null,
+		  onInit: null,
+		  onLazyLoadError: null,
+		  onReInit: null,
+		  pauseOnDotsHover: false,
+		  pauseOnFocus: false,
+		  pauseOnHover: true,
+		  prevArrow: null,
+		  responsive: null,
+		  rows: 1,
+		  rtl: false,
+		  slide: "div",
+		  slidesPerRow: 1,
+		  slidesToScroll: 1,
+		  slidesToShow: 1,
+		  speed: 500,
+		  swipe: true,
+		  swipeEvent: null,
+		  swipeToSlide: false,
+		  touchMove: true,
+		  touchThreshold: 5,
+		  useCSS: true,
+		  useTransform: true,
+		  variableWidth: false,
+		  vertical: false,
+		  waitForAnimate: true
+		};
+		var _default = defaultProps;
+		exports["default"] = _default; 
+	} (defaultProps));
+
+	/**
+	 * Delegate to handle a media query being matched and unmatched.
+	 *
+	 * @param {object} options
+	 * @param {function} options.match callback for when the media query is matched
+	 * @param {function} [options.unmatch] callback for when the media query is unmatched
+	 * @param {function} [options.setup] one-time callback triggered the first time a query is matched
+	 * @param {boolean} [options.deferSetup=false] should the setup callback be run immediately, rather than first time query is matched?
+	 * @constructor
+	 */
+
+	var QueryHandler_1;
+	var hasRequiredQueryHandler;
+
+	function requireQueryHandler () {
+		if (hasRequiredQueryHandler) return QueryHandler_1;
+		hasRequiredQueryHandler = 1;
+		function QueryHandler(options) {
+		  this.options = options;
+		  !options.deferSetup && this.setup();
+		}
+		QueryHandler.prototype = {
+		  constructor: QueryHandler,
+		  /**
+		   * coordinates setup of the handler
+		   *
+		   * @function
+		   */
+		  setup: function () {
+		    if (this.options.setup) {
+		      this.options.setup();
+		    }
+		    this.initialised = true;
+		  },
+		  /**
+		   * coordinates setup and triggering of the handler
+		   *
+		   * @function
+		   */
+		  on: function () {
+		    !this.initialised && this.setup();
+		    this.options.match && this.options.match();
+		  },
+		  /**
+		   * coordinates the unmatch event for the handler
+		   *
+		   * @function
+		   */
+		  off: function () {
+		    this.options.unmatch && this.options.unmatch();
+		  },
+		  /**
+		   * called when a handler is to be destroyed.
+		   * delegates to the destroy or unmatch callbacks, depending on availability.
+		   *
+		   * @function
+		   */
+		  destroy: function () {
+		    this.options.destroy ? this.options.destroy() : this.off();
+		  },
+		  /**
+		   * determines equality by reference.
+		   * if object is supplied compare options, if function, compare match callback
+		   *
+		   * @function
+		   * @param {object || function} [target] the target for comparison
+		   */
+		  equals: function (target) {
+		    return this.options === target || this.options.match === target;
+		  }
+		};
+		QueryHandler_1 = QueryHandler;
+		return QueryHandler_1;
+	}
+
+	/**
+	 * Helper function for iterating over a collection
+	 *
+	 * @param collection
+	 * @param fn
+	 */
+
+	var Util;
+	var hasRequiredUtil;
+
+	function requireUtil () {
+		if (hasRequiredUtil) return Util;
+		hasRequiredUtil = 1;
+		function each(collection, fn) {
+		  var i = 0,
+		    length = collection.length,
+		    cont;
+		  for (i; i < length; i++) {
+		    cont = fn(collection[i], i);
+		    if (cont === false) {
+		      break; //allow early exit
+		    }
+		  }
+		}
+
+		/**
+		 * Helper function for determining whether target object is an array
+		 *
+		 * @param target the object under test
+		 * @return {Boolean} true if array, false otherwise
+		 */
+		function isArray(target) {
+		  return Object.prototype.toString.apply(target) === '[object Array]';
+		}
+
+		/**
+		 * Helper function for determining whether target object is a function
+		 *
+		 * @param target the object under test
+		 * @return {Boolean} true if function, false otherwise
+		 */
+		function isFunction(target) {
+		  return typeof target === 'function';
+		}
+		Util = {
+		  isFunction: isFunction,
+		  isArray: isArray,
+		  each: each
+		};
+		return Util;
+	}
+
+	var MediaQuery_1;
+	var hasRequiredMediaQuery;
+
+	function requireMediaQuery () {
+		if (hasRequiredMediaQuery) return MediaQuery_1;
+		hasRequiredMediaQuery = 1;
+		var QueryHandler = requireQueryHandler();
+		var each = requireUtil().each;
+
+		/**
+		 * Represents a single media query, manages it's state and registered handlers for this query
+		 *
+		 * @constructor
+		 * @param {string} query the media query string
+		 * @param {boolean} [isUnconditional=false] whether the media query should run regardless of whether the conditions are met. Primarily for helping older browsers deal with mobile-first design
+		 */
+		function MediaQuery(query, isUnconditional) {
+		  this.query = query;
+		  this.isUnconditional = isUnconditional;
+		  this.handlers = [];
+		  this.mql = window.matchMedia(query);
+		  var self = this;
+		  this.listener = function (mql) {
+		    // Chrome passes an MediaQueryListEvent object, while other browsers pass MediaQueryList directly
+		    self.mql = mql.currentTarget || mql;
+		    self.assess();
+		  };
+		  this.mql.addListener(this.listener);
+		}
+		MediaQuery.prototype = {
+		  constuctor: MediaQuery,
+		  /**
+		   * add a handler for this query, triggering if already active
+		   *
+		   * @param {object} handler
+		   * @param {function} handler.match callback for when query is activated
+		   * @param {function} [handler.unmatch] callback for when query is deactivated
+		   * @param {function} [handler.setup] callback for immediate execution when a query handler is registered
+		   * @param {boolean} [handler.deferSetup=false] should the setup callback be deferred until the first time the handler is matched?
+		   */
+		  addHandler: function (handler) {
+		    var qh = new QueryHandler(handler);
+		    this.handlers.push(qh);
+		    this.matches() && qh.on();
+		  },
+		  /**
+		   * removes the given handler from the collection, and calls it's destroy methods
+		   *
+		   * @param {object || function} handler the handler to remove
+		   */
+		  removeHandler: function (handler) {
+		    var handlers = this.handlers;
+		    each(handlers, function (h, i) {
+		      if (h.equals(handler)) {
+		        h.destroy();
+		        return !handlers.splice(i, 1); //remove from array and exit each early
+		      }
+		    });
+		  },
+
+		  /**
+		   * Determine whether the media query should be considered a match
+		   *
+		   * @return {Boolean} true if media query can be considered a match, false otherwise
+		   */
+		  matches: function () {
+		    return this.mql.matches || this.isUnconditional;
+		  },
+		  /**
+		   * Clears all handlers and unbinds events
+		   */
+		  clear: function () {
+		    each(this.handlers, function (handler) {
+		      handler.destroy();
+		    });
+		    this.mql.removeListener(this.listener);
+		    this.handlers.length = 0; //clear array
+		  },
+
+		  /*
+		      * Assesses the query, turning on all handlers if it matches, turning them off if it doesn't match
+		      */
+		  assess: function () {
+		    var action = this.matches() ? 'on' : 'off';
+		    each(this.handlers, function (handler) {
+		      handler[action]();
+		    });
+		  }
+		};
+		MediaQuery_1 = MediaQuery;
+		return MediaQuery_1;
+	}
+
+	var MediaQueryDispatch_1;
+	var hasRequiredMediaQueryDispatch;
+
+	function requireMediaQueryDispatch () {
+		if (hasRequiredMediaQueryDispatch) return MediaQueryDispatch_1;
+		hasRequiredMediaQueryDispatch = 1;
+		var MediaQuery = requireMediaQuery();
+		var Util = requireUtil();
+		var each = Util.each;
+		var isFunction = Util.isFunction;
+		var isArray = Util.isArray;
+
+		/**
+		 * Allows for registration of query handlers.
+		 * Manages the query handler's state and is responsible for wiring up browser events
+		 *
+		 * @constructor
+		 */
+		function MediaQueryDispatch() {
+		  if (!window.matchMedia) {
+		    throw new Error('matchMedia not present, legacy browsers require a polyfill');
+		  }
+		  this.queries = {};
+		  this.browserIsIncapable = !window.matchMedia('only all').matches;
+		}
+		MediaQueryDispatch.prototype = {
+		  constructor: MediaQueryDispatch,
+		  /**
+		   * Registers a handler for the given media query
+		   *
+		   * @param {string} q the media query
+		   * @param {object || Array || Function} options either a single query handler object, a function, or an array of query handlers
+		   * @param {function} options.match fired when query matched
+		   * @param {function} [options.unmatch] fired when a query is no longer matched
+		   * @param {function} [options.setup] fired when handler first triggered
+		   * @param {boolean} [options.deferSetup=false] whether setup should be run immediately or deferred until query is first matched
+		   * @param {boolean} [shouldDegrade=false] whether this particular media query should always run on incapable browsers
+		   */
+		  register: function (q, options, shouldDegrade) {
+		    var queries = this.queries,
+		      isUnconditional = shouldDegrade && this.browserIsIncapable;
+		    if (!queries[q]) {
+		      queries[q] = new MediaQuery(q, isUnconditional);
+		    }
+
+		    //normalise to object in an array
+		    if (isFunction(options)) {
+		      options = {
+		        match: options
+		      };
+		    }
+		    if (!isArray(options)) {
+		      options = [options];
+		    }
+		    each(options, function (handler) {
+		      if (isFunction(handler)) {
+		        handler = {
+		          match: handler
+		        };
+		      }
+		      queries[q].addHandler(handler);
+		    });
+		    return this;
+		  },
+		  /**
+		   * unregisters a query and all it's handlers, or a specific handler for a query
+		   *
+		   * @param {string} q the media query to target
+		   * @param {object || function} [handler] specific handler to unregister
+		   */
+		  unregister: function (q, handler) {
+		    var query = this.queries[q];
+		    if (query) {
+		      if (handler) {
+		        query.removeHandler(handler);
+		      } else {
+		        query.clear();
+		        delete this.queries[q];
+		      }
+		    }
+		    return this;
+		  }
+		};
+		MediaQueryDispatch_1 = MediaQueryDispatch;
+		return MediaQueryDispatch_1;
+	}
+
+	var src;
+	var hasRequiredSrc;
+
+	function requireSrc () {
+		if (hasRequiredSrc) return src;
+		hasRequiredSrc = 1;
+		var MediaQueryDispatch = requireMediaQueryDispatch();
+		src = new MediaQueryDispatch();
+		return src;
+	}
+
+	(function (exports) {
+
+		function _typeof(obj) {
+		  "@babel/helpers - typeof";
+
+		  return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+		    return typeof obj;
+		  } : function (obj) {
+		    return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+		  }, _typeof(obj);
+		}
+		Object.defineProperty(exports, "__esModule", {
+		  value: true
+		});
+		exports["default"] = void 0;
+		var _react = _interopRequireDefault(reactExports);
+		var _innerSlider = innerSlider;
+		var _json2mq = _interopRequireDefault(json2mq_1);
+		var _defaultProps = _interopRequireDefault(defaultProps);
+		var _innerSliderUtils = innerSliderUtils;
+		function _interopRequireDefault(obj) {
+		  return obj && obj.__esModule ? obj : {
+		    "default": obj
+		  };
+		}
+		function _extends() {
+		  _extends = Object.assign || function (target) {
+		    for (var i = 1; i < arguments.length; i++) {
+		      var source = arguments[i];
+		      for (var key in source) {
+		        if (Object.prototype.hasOwnProperty.call(source, key)) {
+		          target[key] = source[key];
+		        }
+		      }
+		    }
+		    return target;
+		  };
+		  return _extends.apply(this, arguments);
+		}
+		function ownKeys(object, enumerableOnly) {
+		  var keys = Object.keys(object);
+		  if (Object.getOwnPropertySymbols) {
+		    var symbols = Object.getOwnPropertySymbols(object);
+		    enumerableOnly && (symbols = symbols.filter(function (sym) {
+		      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+		    })), keys.push.apply(keys, symbols);
+		  }
+		  return keys;
+		}
+		function _objectSpread(target) {
+		  for (var i = 1; i < arguments.length; i++) {
+		    var source = null != arguments[i] ? arguments[i] : {};
+		    i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
+		      _defineProperty(target, key, source[key]);
+		    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
+		      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+		    });
+		  }
+		  return target;
+		}
+		function _classCallCheck(instance, Constructor) {
+		  if (!(instance instanceof Constructor)) {
+		    throw new TypeError("Cannot call a class as a function");
+		  }
+		}
+		function _defineProperties(target, props) {
+		  for (var i = 0; i < props.length; i++) {
+		    var descriptor = props[i];
+		    descriptor.enumerable = descriptor.enumerable || false;
+		    descriptor.configurable = true;
+		    if ("value" in descriptor) descriptor.writable = true;
+		    Object.defineProperty(target, descriptor.key, descriptor);
+		  }
+		}
+		function _createClass(Constructor, protoProps, staticProps) {
+		  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+		  if (staticProps) _defineProperties(Constructor, staticProps);
+		  Object.defineProperty(Constructor, "prototype", {
+		    writable: false
+		  });
+		  return Constructor;
+		}
+		function _inherits(subClass, superClass) {
+		  if (typeof superClass !== "function" && superClass !== null) {
+		    throw new TypeError("Super expression must either be null or a function");
+		  }
+		  subClass.prototype = Object.create(superClass && superClass.prototype, {
+		    constructor: {
+		      value: subClass,
+		      writable: true,
+		      configurable: true
+		    }
+		  });
+		  Object.defineProperty(subClass, "prototype", {
+		    writable: false
+		  });
+		  if (superClass) _setPrototypeOf(subClass, superClass);
+		}
+		function _setPrototypeOf(o, p) {
+		  _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+		    o.__proto__ = p;
+		    return o;
+		  };
+		  return _setPrototypeOf(o, p);
+		}
+		function _createSuper(Derived) {
+		  var hasNativeReflectConstruct = _isNativeReflectConstruct();
+		  return function _createSuperInternal() {
+		    var Super = _getPrototypeOf(Derived),
+		      result;
+		    if (hasNativeReflectConstruct) {
+		      var NewTarget = _getPrototypeOf(this).constructor;
+		      result = Reflect.construct(Super, arguments, NewTarget);
+		    } else {
+		      result = Super.apply(this, arguments);
+		    }
+		    return _possibleConstructorReturn(this, result);
+		  };
+		}
+		function _possibleConstructorReturn(self, call) {
+		  if (call && (_typeof(call) === "object" || typeof call === "function")) {
+		    return call;
+		  } else if (call !== void 0) {
+		    throw new TypeError("Derived constructors may only return object or undefined");
+		  }
+		  return _assertThisInitialized(self);
+		}
+		function _assertThisInitialized(self) {
+		  if (self === void 0) {
+		    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+		  }
+		  return self;
+		}
+		function _isNativeReflectConstruct() {
+		  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+		  if (Reflect.construct.sham) return false;
+		  if (typeof Proxy === "function") return true;
+		  try {
+		    Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {}));
+		    return true;
+		  } catch (e) {
+		    return false;
+		  }
+		}
+		function _getPrototypeOf(o) {
+		  _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+		    return o.__proto__ || Object.getPrototypeOf(o);
+		  };
+		  return _getPrototypeOf(o);
+		}
+		function _defineProperty(obj, key, value) {
+		  if (key in obj) {
+		    Object.defineProperty(obj, key, {
+		      value: value,
+		      enumerable: true,
+		      configurable: true,
+		      writable: true
+		    });
+		  } else {
+		    obj[key] = value;
+		  }
+		  return obj;
+		}
+		var enquire = (0, _innerSliderUtils.canUseDOM)() && requireSrc();
+		var Slider = /*#__PURE__*/function (_React$Component) {
+		  _inherits(Slider, _React$Component);
+		  var _super = _createSuper(Slider);
+		  function Slider(props) {
+		    var _this;
+		    _classCallCheck(this, Slider);
+		    _this = _super.call(this, props);
+		    _defineProperty(_assertThisInitialized(_this), "innerSliderRefHandler", function (ref) {
+		      return _this.innerSlider = ref;
+		    });
+		    _defineProperty(_assertThisInitialized(_this), "slickPrev", function () {
+		      return _this.innerSlider.slickPrev();
+		    });
+		    _defineProperty(_assertThisInitialized(_this), "slickNext", function () {
+		      return _this.innerSlider.slickNext();
+		    });
+		    _defineProperty(_assertThisInitialized(_this), "slickGoTo", function (slide) {
+		      var dontAnimate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+		      return _this.innerSlider.slickGoTo(slide, dontAnimate);
+		    });
+		    _defineProperty(_assertThisInitialized(_this), "slickPause", function () {
+		      return _this.innerSlider.pause("paused");
+		    });
+		    _defineProperty(_assertThisInitialized(_this), "slickPlay", function () {
+		      return _this.innerSlider.autoPlay("play");
+		    });
+		    _this.state = {
+		      breakpoint: null
+		    };
+		    _this._responsiveMediaHandlers = [];
+		    return _this;
+		  }
+		  _createClass(Slider, [{
+		    key: "media",
+		    value: function media(query, handler) {
+		      // javascript handler for  css media query
+		      enquire.register(query, handler);
+		      this._responsiveMediaHandlers.push({
+		        query: query,
+		        handler: handler
+		      });
+		    } // handles responsive breakpoints
+		  }, {
+		    key: "componentDidMount",
+		    value: function componentDidMount() {
+		      var _this2 = this;
+
+		      // performance monitoring
+		      //if ("development" !== 'production') {
+		      //const { whyDidYouUpdate } = require('why-did-you-update')
+		      //whyDidYouUpdate(React)
+		      //}
+		      if (this.props.responsive) {
+		        var breakpoints = this.props.responsive.map(function (breakpt) {
+		          return breakpt.breakpoint;
+		        }); // sort them in increasing order of their numerical value
+
+		        breakpoints.sort(function (x, y) {
+		          return x - y;
+		        });
+		        breakpoints.forEach(function (breakpoint, index) {
+		          // media query for each breakpoint
+		          var bQuery;
+		          if (index === 0) {
+		            bQuery = (0, _json2mq["default"])({
+		              minWidth: 0,
+		              maxWidth: breakpoint
+		            });
+		          } else {
+		            bQuery = (0, _json2mq["default"])({
+		              minWidth: breakpoints[index - 1] + 1,
+		              maxWidth: breakpoint
+		            });
+		          } // when not using server side rendering
+
+		          (0, _innerSliderUtils.canUseDOM)() && _this2.media(bQuery, function () {
+		            _this2.setState({
+		              breakpoint: breakpoint
+		            });
+		          });
+		        }); // Register media query for full screen. Need to support resize from small to large
+		        // convert javascript object to media query string
+
+		        var query = (0, _json2mq["default"])({
+		          minWidth: breakpoints.slice(-1)[0]
+		        });
+		        (0, _innerSliderUtils.canUseDOM)() && this.media(query, function () {
+		          _this2.setState({
+		            breakpoint: null
+		          });
+		        });
+		      }
+		    }
+		  }, {
+		    key: "componentWillUnmount",
+		    value: function componentWillUnmount() {
+		      this._responsiveMediaHandlers.forEach(function (obj) {
+		        enquire.unregister(obj.query, obj.handler);
+		      });
+		    }
+		  }, {
+		    key: "render",
+		    value: function render() {
+		      var _this3 = this;
+		      var settings;
+		      var newProps;
+		      if (this.state.breakpoint) {
+		        newProps = this.props.responsive.filter(function (resp) {
+		          return resp.breakpoint === _this3.state.breakpoint;
+		        });
+		        settings = newProps[0].settings === "unslick" ? "unslick" : _objectSpread(_objectSpread(_objectSpread({}, _defaultProps["default"]), this.props), newProps[0].settings);
+		      } else {
+		        settings = _objectSpread(_objectSpread({}, _defaultProps["default"]), this.props);
+		      } // force scrolling by one if centerMode is on
+
+		      if (settings.centerMode) {
+		        if (settings.slidesToScroll > 1 && "development" !== "production") {
+		          console.warn("slidesToScroll should be equal to 1 in centerMode, you are using ".concat(settings.slidesToScroll));
+		        }
+		        settings.slidesToScroll = 1;
+		      } // force showing one slide and scrolling by one if the fade mode is on
+
+		      if (settings.fade) {
+		        if (settings.slidesToShow > 1 && "development" !== "production") {
+		          console.warn("slidesToShow should be equal to 1 when fade is true, you're using ".concat(settings.slidesToShow));
+		        }
+		        if (settings.slidesToScroll > 1 && "development" !== "production") {
+		          console.warn("slidesToScroll should be equal to 1 when fade is true, you're using ".concat(settings.slidesToScroll));
+		        }
+		        settings.slidesToShow = 1;
+		        settings.slidesToScroll = 1;
+		      } // makes sure that children is an array, even when there is only 1 child
+
+		      var children = _react["default"].Children.toArray(this.props.children); // Children may contain false or null, so we should filter them
+		      // children may also contain string filled with spaces (in certain cases where we use jsx strings)
+
+		      children = children.filter(function (child) {
+		        if (typeof child === "string") {
+		          return !!child.trim();
+		        }
+		        return !!child;
+		      }); // rows and slidesPerRow logic is handled here
+
+		      if (settings.variableWidth && (settings.rows > 1 || settings.slidesPerRow > 1)) {
+		        console.warn("variableWidth is not supported in case of rows > 1 or slidesPerRow > 1");
+		        settings.variableWidth = false;
+		      }
+		      var newChildren = [];
+		      var currentWidth = null;
+		      for (var i = 0; i < children.length; i += settings.rows * settings.slidesPerRow) {
+		        var newSlide = [];
+		        for (var j = i; j < i + settings.rows * settings.slidesPerRow; j += settings.slidesPerRow) {
+		          var row = [];
+		          for (var k = j; k < j + settings.slidesPerRow; k += 1) {
+		            if (settings.variableWidth && children[k].props.style) {
+		              currentWidth = children[k].props.style.width;
+		            }
+		            if (k >= children.length) break;
+		            row.push( /*#__PURE__*/_react["default"].cloneElement(children[k], {
+		              key: 100 * i + 10 * j + k,
+		              tabIndex: -1,
+		              style: {
+		                width: "".concat(100 / settings.slidesPerRow, "%"),
+		                display: "inline-block"
+		              }
+		            }));
+		          }
+		          newSlide.push( /*#__PURE__*/_react["default"].createElement("div", {
+		            key: 10 * i + j
+		          }, row));
+		        }
+		        if (settings.variableWidth) {
+		          newChildren.push( /*#__PURE__*/_react["default"].createElement("div", {
+		            key: i,
+		            style: {
+		              width: currentWidth
+		            }
+		          }, newSlide));
+		        } else {
+		          newChildren.push( /*#__PURE__*/_react["default"].createElement("div", {
+		            key: i
+		          }, newSlide));
+		        }
+		      }
+		      if (settings === "unslick") {
+		        var className = "regular slider " + (this.props.className || "");
+		        return /*#__PURE__*/_react["default"].createElement("div", {
+		          className: className
+		        }, children);
+		      } else if (newChildren.length <= settings.slidesToShow) {
+		        settings.unslick = true;
+		      }
+		      return /*#__PURE__*/_react["default"].createElement(_innerSlider.InnerSlider, _extends({
+		        style: this.props.style,
+		        ref: this.innerSliderRefHandler
+		      }, settings), newChildren);
+		    }
+		  }]);
+		  return Slider;
+		}(_react["default"].Component);
+		exports["default"] = Slider; 
+	} (slider));
+
+	(function (exports) {
+
+		Object.defineProperty(exports, "__esModule", {
+		  value: true
+		});
+		exports["default"] = void 0;
+		var _slider = _interopRequireDefault(slider);
+		function _interopRequireDefault(obj) {
+		  return obj && obj.__esModule ? obj : {
+		    "default": obj
+		  };
+		}
+		var _default = _slider["default"];
+		exports["default"] = _default; 
+	} (lib));
+
+	var Slider = /*@__PURE__*/getDefaultExportFromCjs(lib);
+
+	/**
+	 * @license lucide-react v0.298.0 - ISC
+	 *
+	 * This source code is licensed under the ISC license.
+	 * See the LICENSE file in the root directory of this source tree.
+	 */
+
+	var defaultAttributes = {
+	  xmlns: "http://www.w3.org/2000/svg",
+	  width: 24,
+	  height: 24,
+	  viewBox: "0 0 24 24",
+	  fill: "none",
+	  stroke: "currentColor",
+	  strokeWidth: 2,
+	  strokeLinecap: "round",
+	  strokeLinejoin: "round"
+	};
+
+	/**
+	 * @license lucide-react v0.298.0 - ISC
+	 *
+	 * This source code is licensed under the ISC license.
+	 * See the LICENSE file in the root directory of this source tree.
+	 */
+	const toKebabCase = string => string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase().trim();
+	const createLucideIcon = (iconName, iconNode) => {
+	  const Component = /*#__PURE__*/reactExports.forwardRef(({
+	    color = "currentColor",
+	    size = 24,
+	    strokeWidth = 2,
+	    absoluteStrokeWidth,
+	    className = "",
+	    children,
+	    ...rest
+	  }, ref) => /*#__PURE__*/reactExports.createElement("svg", {
+	    ref,
+	    ...defaultAttributes,
+	    width: size,
+	    height: size,
+	    stroke: color,
+	    strokeWidth: absoluteStrokeWidth ? Number(strokeWidth) * 24 / Number(size) : strokeWidth,
+	    className: ["lucide", `lucide-${toKebabCase(iconName)}`, className].join(" "),
+	    ...rest
+	  }, [...iconNode.map(([tag, attrs]) => /*#__PURE__*/reactExports.createElement(tag, attrs)), ...(Array.isArray(children) ? children : [children])]));
+	  Component.displayName = `${iconName}`;
+	  return Component;
+	};
+
+	/**
+	 * @license lucide-react v0.298.0 - ISC
+	 *
+	 * This source code is licensed under the ISC license.
+	 * See the LICENSE file in the root directory of this source tree.
+	 */
+	const ChevronLeft = createLucideIcon("ChevronLeft", [["path", {
+	  d: "m15 18-6-6 6-6",
+	  key: "1wnfg3"
+	}]]);
+
+	/**
+	 * @license lucide-react v0.298.0 - ISC
+	 *
+	 * This source code is licensed under the ISC license.
+	 * See the LICENSE file in the root directory of this source tree.
+	 */
+	const ChevronRight = createLucideIcon("ChevronRight", [["path", {
+	  d: "m9 18 6-6-6-6",
+	  key: "mthhwq"
+	}]]);
+
+	var Carousel = function Carousel(_ref) {
+	  var oeuvres = _ref.oeuvres;
+	  var CustomNextArrow = function CustomNextArrow(props) {
+	    return /*#__PURE__*/React.createElement("div", _extends$3({}, props, {
+	      className: "custom-next-arrow"
+	    }), /*#__PURE__*/React.createElement(ChevronRight, null));
+	  };
+	  var CustomPrevArrow = function CustomPrevArrow(props) {
+	    return /*#__PURE__*/React.createElement("div", _extends$3({}, props, {
+	      className: "custom-prev-arrow"
+	    }), /*#__PURE__*/React.createElement(ChevronLeft, null));
+	  };
+	  var settings = {
+	    dots: true,
+	    infinite: true,
+	    speed: 500,
+	    slidesToShow: 3,
+	    slidesToScroll: 1,
+	    nextArrow: /*#__PURE__*/React.createElement(CustomNextArrow, null),
+	    prevArrow: /*#__PURE__*/React.createElement(CustomPrevArrow, null)
+	  };
+	  return /*#__PURE__*/React.createElement("div", {
+	    className: "carousel-container"
+	  }, /*#__PURE__*/React.createElement(Slider, _extends$3({
+	    className: "carousel"
+	  }, settings), oeuvres.map(function (oeuvre) {
+	    return /*#__PURE__*/React.createElement("div", {
+	      key: oeuvre.id
+	    }, /*#__PURE__*/React.createElement(Oeuvre, {
+	      key: oeuvre.id,
+	      imageSrc: oeuvre.image,
+	      title: oeuvre.titre,
+	      dateCreation: oeuvre.date,
+	      prix: oeuvre.prix,
+	      periode: oeuvre.periode,
+	      id: oeuvre.id
+	    }));
+	  })));
+	};
+
+	var SingleOeuvrePage = function SingleOeuvrePage() {
+	  var _useState = reactExports.useState(null),
+	    _useState2 = _slicedToArray(_useState, 2),
+	    oeuvre = _useState2[0],
+	    setOeuvre = _useState2[1];
+	  var _useState3 = reactExports.useState([]),
+	    _useState4 = _slicedToArray(_useState3, 2),
+	    similarOeuvres = _useState4[0],
+	    setSimilarOeuvres = _useState4[1];
+	  var _useParams = useParams(),
+	    id = _useParams.id;
+	  console.log("id", id);
+	  reactExports.useEffect(function () {
+	    var fetchOeuvreAndSimilar = function fetchOeuvreAndSimilar(id) {
+	      var foundOeuvre = null;
+	      var similarOeuvres = [];
+	      var _iterator = _createForOfIteratorHelper(data.oeuvres),
+	        _step;
+	      try {
+	        var _loop = function _loop() {
+	          var periode = _step.value;
+	          var nom = periode.periode,
+	            oeuvres = periode.oeuvres;
+
+	          // Utilize the find function to find the corresponding artwork by id
+	          var found = data.oeuvres.find(function (oeuvre) {
+	            return oeuvre.id === id;
+	          });
+	          if (found) {
+	            foundOeuvre = _objectSpread2(_objectSpread2({}, found), {}, {
+	              periode: nom
+	            });
+
+	            // Utilize filter to get similar artworks
+	            similarOeuvres = data.oeuvres.filter(function (oeuvre) {
+	              return oeuvre.categories === found.categories && oeuvre.id !== id;
+	            }).map(function (_ref) {
+	              var id = _ref.id,
+	                titre = _ref.titre,
+	                artiste = _ref.artiste,
+	                image = _ref.image;
+	              return {
+	                id: id,
+	                titre: titre,
+	                artiste: artiste,
+	                image: image
+	              };
+	            });
+	          }
+	        };
+	        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+	          _loop();
+	        }
+	      } catch (err) {
+	        _iterator.e(err);
+	      } finally {
+	        _iterator.f();
+	      }
+	      return {
+	        foundOeuvre: foundOeuvre,
+	        similarOeuvres: similarOeuvres
+	      };
+	    };
+	    var _fetchOeuvreAndSimila = fetchOeuvreAndSimilar(id),
+	      foundOeuvre = _fetchOeuvreAndSimila.foundOeuvre,
+	      similarOeuvres = _fetchOeuvreAndSimila.similarOeuvres;
+	    setOeuvre(foundOeuvre);
+	    setSimilarOeuvres(similarOeuvres);
+	  }, [id]);
+	  console.log(oeuvre);
+	  console.log(similarOeuvres);
+	  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+	    className: "containerOeuvre"
+	  }, /*#__PURE__*/React.createElement("div", {
+	    className: "imageContent"
+	  }, oeuvre && /*#__PURE__*/React.createElement("img", {
+	    src: oeuvre.image,
+	    alt: oeuvre.titre
+	  })), /*#__PURE__*/React.createElement("div", {
+	    className: "detailContent"
+	  }, oeuvre && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, oeuvre.titre), /*#__PURE__*/React.createElement("hr", {
+	    className: "separator"
+	  }), /*#__PURE__*/React.createElement("div", {
+	    className: "detailRow"
+	  }, /*#__PURE__*/React.createElement("div", {
+	    className: "leftRow"
+	  }, /*#__PURE__*/React.createElement("p", {
+	    className: "title"
+	  }, "Artiste: "), /*#__PURE__*/React.createElement("p", {
+	    className: "subTitle"
+	  }, oeuvre.artiste)), /*#__PURE__*/React.createElement("div", {
+	    className: "rightRow"
+	  }, /*#__PURE__*/React.createElement("p", {
+	    className: "title"
+	  }, "Date: "), /*#__PURE__*/React.createElement("p", {
+	    className: "subTitle"
+	  }, oeuvre.date))), /*#__PURE__*/React.createElement("div", {
+	    className: "detailRow"
+	  }, /*#__PURE__*/React.createElement("div", {
+	    className: "leftRow"
+	  }, /*#__PURE__*/React.createElement("p", {
+	    className: "title"
+	  }, "P\xE9riode: "), /*#__PURE__*/React.createElement("p", {
+	    className: "subTitle"
+	  }, oeuvre.periode)), /*#__PURE__*/React.createElement("div", {
+	    className: "rightRow"
+	  }, /*#__PURE__*/React.createElement("p", {
+	    className: "title"
+	  }, "prix: "), /*#__PURE__*/React.createElement("p", {
+	    className: "subTitle"
+	  }, oeuvre.prix, " \u20AC")))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+	    className: "container"
+	  }, /*#__PURE__*/React.createElement("h2", {
+	    className: "titre-section"
+	  }, "Oeuvres similaires"), /*#__PURE__*/React.createElement(Carousel, {
+	    oeuvres: similarOeuvres
+	  }))));
 	};
 
 	function App() {
-	  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Accueil, null));
+	  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Routes, null, /*#__PURE__*/React.createElement(Route, {
+	    exact: true,
+	    path: "/",
+	    element: /*#__PURE__*/React.createElement(Accueil, null)
+	  }), /*#__PURE__*/React.createElement(Route, {
+	    path: "/oeuvre/:id",
+	    element: /*#__PURE__*/React.createElement(SingleOeuvrePage, null)
+	  })));
 	}
 
-	ReactDOM.render( /*#__PURE__*/React.createElement(App, null), document.getElementById("root"));
+	ReactDOM.render( /*#__PURE__*/React.createElement(React.StrictMode, null, /*#__PURE__*/React.createElement(BrowserRouter, null, /*#__PURE__*/React.createElement(App, null))), document.getElementById("root"));
 
 })();
 //# sourceMappingURL=bundle.js.map

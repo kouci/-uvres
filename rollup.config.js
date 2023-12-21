@@ -4,6 +4,7 @@ import babel from "@rollup/plugin-babel";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import replace from "@rollup/plugin-replace";
+import json from '@rollup/plugin-json';
 
 // Importez le plugin SCSS
 import scss from "rollup-plugin-scss";
@@ -15,11 +16,15 @@ export default {
     file: "dist/bundle.js",
     format: "iife",
     sourcemap: true,
+    globals: {
+      'lucide-react': 'lucideReact',
+    },
   },
   plugins: [
     nodeResolve({
       extensions: [".js"],
     }),
+    json(),
     scss({ fileName: "assets/style.css" }), // Utilisez le plugin SCSS pour traiter les fichiers SCSS
     replace({
       "process.env.NODE_ENV": JSON.stringify("development"),

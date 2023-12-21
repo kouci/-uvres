@@ -1,6 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import App from "./App"; // Importez le composant App depuis App.js
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
 import "./style.scss";
 
-ReactDOM.render(<App />, document.getElementById("root"));
+ReactDOM.render(
+    <React.StrictMode>
+        <BrowserRouter>
+            <App />
+        </BrowserRouter>
+    </React.StrictMode>,
+    document.getElementById("root")
+);
