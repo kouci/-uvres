@@ -15,16 +15,15 @@ const SingleOeuvrePage = () => {
             let foundOeuvre = null;
             let similarOeuvres = [];
 
-            
             for (const periode of data.oeuvres) {
                 const { periode: nom, oeuvres } = periode;
-    
+
                 // Utilize the find function to find the corresponding artwork by id
                 const found = data.oeuvres.find((oeuvre) => oeuvre.id === id);
-    
+
                 if (found) {
                     foundOeuvre = { ...found, periode: nom };
-    
+
                     // Utilize filter to get similar artworks
                     similarOeuvres = data.oeuvres
                         .filter(
@@ -32,19 +31,23 @@ const SingleOeuvrePage = () => {
                                 oeuvre.categories === found.categories &&
                                 oeuvre.id !== id
                         )
-                        .map(({ id, titre, artiste, image }) => ({ id, titre, artiste, image }));
+                        .map(({ id, titre, artiste, image }) => ({
+                            id,
+                            titre,
+                            artiste,
+                            image,
+                        }));
                 }
             }
-    
+
             return { foundOeuvre, similarOeuvres };
         };
-    
+
         const { foundOeuvre, similarOeuvres } = fetchOeuvreAndSimilar(id);
-    
+
         setOeuvre(foundOeuvre);
         setSimilarOeuvres(similarOeuvres);
     }, [id]);
-    
 
     console.log(oeuvre);
     console.log(similarOeuvres);
@@ -80,16 +83,20 @@ const SingleOeuvrePage = () => {
                                     <p className="subTitle">{oeuvre.prix} €</p>
                                 </div>
                             </div>
+                            <div className="detailRow"></div>
                         </div>
                     )}
                 </div>
             </div>
-            <div>
-            <div className="container">
-            <h2 className="titre-section">Oeuvres similaires</h2>
-            <Carousel oeuvres={similarOeuvres} />
+            <div className="descriptionContent">
+                <p className="title">Description: </p>
+                <p className="subTitle">{ oeuvre && oeuvre.description}</p>
             </div>
-                
+            <div>
+                <div className="container">
+                    <h2 className="titre-section">Oeuvres similaires</h2>
+                    <Carousel oeuvres={similarOeuvres} />
+                </div>
             </div>
         </div>
     );

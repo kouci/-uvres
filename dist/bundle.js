@@ -13730,7 +13730,8 @@
 			date: "1503-1506",
 			prix: 1000000,
 			image: "../images/renaissance/peinture/rp1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Joconde, également connue sous le nom de Mona Lisa, est un chef-d'œuvre emblématique de Leonardo da Vinci. Ce portrait énigmatique d'une femme mystérieuse a captivé des générations d'admirateurs par son sourire énigmatique et son regard profond."
 		},
 		{
 			periode: "Renaissance",
@@ -13741,7 +13742,8 @@
 			date: "1484-1486",
 			prix: 900000,
 			image: "../images/renaissance/peinture/rp2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Naissance de Vénus, créée par Sandro Botticelli, est une œuvre emblématique de la Renaissance italienne. Cette peinture mythologique représente la déesse Vénus émergeant de l'océan sur une coquille, entourée de divinités marines et de vents."
 		},
 		{
 			periode: "Renaissance",
@@ -13752,7 +13754,8 @@
 			date: "1495-1498",
 			prix: 1200000,
 			image: "../images/renaissance/peinture/rp3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Cène, une œuvre magistrale de Leonardo da Vinci, représente le dernier repas de Jésus avec ses disciples. Cette fresque emblématique capture l'intensité du moment et la diversité des réactions des apôtres face à l'annonce de la trahison."
 		},
 		{
 			periode: "Renaissance",
@@ -13763,7 +13766,8 @@
 			date: "1477-1482",
 			prix: 850000,
 			image: "../images/renaissance/peinture/rp4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Primavera, une œuvre gracieuse de Sandro Botticelli, célèbre la beauté et la grâce du printemps. Cette peinture mythologique met en scène un groupe de divinités, avec Vénus au centre, entourées de fleurs et de symboles de renouveau."
 		},
 		{
 			periode: "Renaissance",
@@ -13774,7 +13778,8 @@
 			date: "1490",
 			prix: 1100000,
 			image: "../images/renaissance/peinture/rp5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "L'Homme de Vitruve, une étude anatomique de génie par Leonardo da Vinci, explore la proportion idéale du corps humain. Cette œuvre fascinante reflète la quête de compréhension de da Vinci pour l'harmonie entre l'art et la science."
 		},
 		{
 			periode: "Renaissance",
@@ -13785,7 +13790,8 @@
 			date: "1501-1504",
 			prix: 800000,
 			image: "../images/renaissance/sculpture/rs1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "David, la sculpture magistrale de Michel-Ange, incarne la force et la détermination. Cette représentation du jeune héros biblique David, prêt à affronter Goliath, est un symbole intemporel de courage et de victoire."
 		},
 		{
 			periode: "Renaissance",
@@ -13796,7 +13802,8 @@
 			date: "1498-1499",
 			prix: 950000,
 			image: "../images/renaissance/sculpture/rs2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Renaissance",
@@ -13807,7 +13814,8 @@
 			date: "1496-1497",
 			prix: 700000,
 			image: "../images/renaissance/sculpture/rs3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Renaissance",
@@ -13818,7 +13826,8 @@
 			date: "1513-1534",
 			prix: 900000,
 			image: "../images/renaissance/sculpture/rs4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Renaissance",
@@ -13829,7 +13838,8 @@
 			date: "1580",
 			prix: 850000,
 			image: "../images/renaissance/sculpture/rs5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13840,7 +13850,8 @@
 			date: "1656",
 			prix: 1000000,
 			image: "../images/baroque/peinture/bp1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13851,7 +13862,8 @@
 			date: "1632",
 			prix: 900000,
 			image: "../images/baroque/peinture/bp2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13862,7 +13874,8 @@
 			date: "1665",
 			prix: 1200000,
 			image: "../images/baroque/peinture/bp3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13873,7 +13886,8 @@
 			date: "1642",
 			prix: 850000,
 			image: "../images/baroque/peinture/bp4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13884,7 +13898,8 @@
 			date: "1658",
 			prix: 1100000,
 			image: "../images/baroque/peinture/bp5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13895,7 +13910,8 @@
 			date: "1623-1624",
 			prix: 800000,
 			image: "../images/baroque/sculpture/bs1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13906,7 +13922,8 @@
 			date: "1622-1625",
 			prix: 950000,
 			image: "../images/baroque/sculpture/bs2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13917,7 +13934,8 @@
 			date: "1622-1625",
 			prix: 700000,
 			image: "../images/baroque/sculpture/bs3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Baroque",
@@ -13927,7 +13945,8 @@
 			artiste: "Le Bernin",
 			date: "1622-1625",
 			image: "../images/baroque/sculpture/bs4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13938,7 +13957,8 @@
 			date: "1767",
 			prix: 1200000,
 			image: "../images/rococo/peinture/rp1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13949,7 +13969,8 @@
 			date: "1719",
 			prix: 900000,
 			image: "../images/rococo/peinture/rp2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13960,7 +13981,8 @@
 			date: "1777",
 			prix: 1100000,
 			image: "../images/rococo/peinture/rp3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13971,7 +13993,8 @@
 			date: "1732",
 			prix: 950000,
 			image: "../images/rococo/peinture/rp4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13982,7 +14005,8 @@
 			date: "1770",
 			prix: 850000,
 			image: "../images/rococo/peinture/rp5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -13993,7 +14017,8 @@
 			date: "1757",
 			prix: 950000,
 			image: "../images/rococo/sculpture/rs1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -14004,7 +14029,8 @@
 			date: "1886",
 			prix: 1200000,
 			image: "../images/rococo/sculpture/rs2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -14015,7 +14041,8 @@
 			date: "100 av. J.-C.",
 			prix: 2000000,
 			image: "../images/rococo/sculpture/rs3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -14026,7 +14053,8 @@
 			date: "1787",
 			prix: 1050000,
 			image: "../images/rococo/sculpture/rs4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Rococo",
@@ -14037,7 +14065,8 @@
 			date: "1817",
 			prix: 1100000,
 			image: "../images/rococo/sculpture/rs5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14048,7 +14077,8 @@
 			date: "1805-1807",
 			prix: 1300000,
 			image: "../images/classicisme/peinture/cp1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14059,7 +14089,8 @@
 			date: "1800",
 			prix: 950000,
 			image: "../images/classicisme/peinture/cp2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14070,7 +14101,8 @@
 			date: "1784",
 			prix: 1100000,
 			image: "../images/classicisme/peinture/cp3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14081,7 +14113,8 @@
 			date: "1827",
 			prix: 1150000,
 			image: "../images/classicisme/peinture/cp4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14092,7 +14125,8 @@
 			date: "1830",
 			prix: 1200000,
 			image: "../images/classicisme/peinture/cp5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14103,7 +14137,8 @@
 			date: "1802-1806",
 			prix: 1000000,
 			image: "../images/classicisme/sculpture/cs1.jpg",
-			nouveau: true
+			nouveau: true,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14114,7 +14149,8 @@
 			date: "1622-1625",
 			prix: 950000,
 			image: "../images/classicisme/sculpture/cs2.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14125,7 +14161,8 @@
 			date: "1787-1793",
 			prix: 1100000,
 			image: "../images/classicisme/sculpture/cs3.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14136,7 +14173,8 @@
 			date: "190 av. J.-C.",
 			prix: 1200000,
 			image: "../images/classicisme/sculpture/cs4.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		},
 		{
 			periode: "Classicisme",
@@ -14147,7 +14185,8 @@
 			date: "1er siècle av. J.-C.",
 			prix: 1250000,
 			image: "../images/classicisme/sculpture/cs5.jpg",
-			nouveau: false
+			nouveau: false,
+			description: "La Pieta, une œuvre émouvante de Michel-Ange, représente la Vierge Marie tenant le corps de Jésus après la crucifixion. L'expression de tristesse et de compassion dans cette sculpture en marbre en fait une pièce exceptionnelle de la sculpture Renaissance."
 		}
 	];
 	var data = {
@@ -19251,7 +19290,15 @@
 	    className: "title"
 	  }, "prix: "), /*#__PURE__*/React.createElement("p", {
 	    className: "subTitle"
-	  }, oeuvre.prix, " \u20AC")))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+	  }, oeuvre.prix, " \u20AC"))), /*#__PURE__*/React.createElement("div", {
+	    className: "detailRow"
+	  })))), /*#__PURE__*/React.createElement("div", {
+	    className: "descriptionContent"
+	  }, /*#__PURE__*/React.createElement("p", {
+	    className: "title"
+	  }, "Description: "), /*#__PURE__*/React.createElement("p", {
+	    className: "subTitle"
+	  }, oeuvre && oeuvre.description)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
 	    className: "container"
 	  }, /*#__PURE__*/React.createElement("h2", {
 	    className: "titre-section"

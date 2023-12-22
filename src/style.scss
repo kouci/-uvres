@@ -85,11 +85,12 @@ $primary-color: #3f3e3e;
     width: 600px;
     height: 400px;
     border-radius: 10px;
-    margin-top: 30px;
+    margin-top: 70px;
 }
 
 .detailContent {
     width: 100%;
+    margin-top: 60px;
 }
 
 .detailContent h1 {
@@ -111,15 +112,19 @@ $primary-color: #3f3e3e;
 .detailRow {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    margin-left: 100px;
 }
 .detailRow .leftRow {
     width: 200px;
-    margin-bottom: 85px;
+    margin-right: 200px;
 }
 .detailRow .rightRow {
     width: 200px;
-    margin-bottom: 85px;
+    margin-left: 194px;
+}
+
+.descriptionContent {
+    margin-left: 20px;
 }
 
 .subTitle {
@@ -156,7 +161,7 @@ $primary-color: #3f3e3e;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    background-color: #fff; 
+    background-color: #fff;
     padding: 10px;
     border-radius: 5px;
     z-index: 1;
@@ -169,4 +174,3 @@ $primary-color: #3f3e3e;
 .custom-prev-arrow {
     left: -28px;
 }
-

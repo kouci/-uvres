@@ -16,7 +16,7 @@ export default {
     file: "dist/bundle.js",
     format: "iife",
     sourcemap: true,
-    globals: {
+    globals: { 
       'lucide-react': 'lucideReact',
     },
   },
