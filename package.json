@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "start": "rollup -c -w"
+    "start": "rollup -c rollup.config.js -w",
+    "build": "rollup -c rollup.config.prod.js"
   },
   "author": "",
   "license": "ISC",
@@ -41,6 +42,7 @@
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-scss": "^4.0.0",
     "rollup-plugin-serve": "^2.0.2",
+    "rollup-plugin-terser": "^7.0.2",
     "sass": "^1.69.4"
   }
 }
