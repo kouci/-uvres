@@ -6,6 +6,9 @@ import scss from "rollup-plugin-scss";
 import image from "@rollup/plugin-image";
 import { terser } from 'rollup-plugin-terser';
 import babel from "@rollup/plugin-babel";
+import css from 'rollup-plugin-css-only';
+
+
 
 
 export default {
@@ -33,6 +36,7 @@ export default {
       babelHelpers: 'bundled',
     }),
     image(),
+    css({ output: 'public/bundle.css' }), // Ajouter ce plugin pour les styles CSS
     commonjs(),
     terser(), // Minifier le code pour la production
   ],
